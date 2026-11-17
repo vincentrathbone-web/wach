@@ -2,12 +2,14 @@
 
 A small Windows app that shows several WhatsApp Web accounts side by side, each fully separate, without Electron.
 
-Status: draft for review · 2026-11-17
+Status: draft for review · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md)
 
 ## 1. Goal and scope
 
 **Must have (v1)**
-- One tab per WhatsApp account; add, rename, close, switch, reorder; remembered between runs.
+- One entry per WhatsApp account in a left rail; add, rename, close, switch, reorder; remembered between runs.
+- **Split view:** two accounts side by side in two vertical panes (like a two-pane file manager), with Single ↔ Split, swap, focus and a resizable divider. Layout "Rail", see DESIGN.md §2.
+- **Tokenized design:** every colour, radius, size, spacing, shadow/glow, font and timing comes from tokens in `ui/tokens.css`, so the app can be re-themed by changing one file (DESIGN.md §7).
 - Each account fully isolated (its own cookies, IndexedDB, service workers), and stays logged in after a restart.
 - Notifications that name the account; clicking one opens the right tab.
 - Unread count per tab, total on the tray icon and as a taskbar overlay dot.
@@ -17,7 +19,7 @@ Status: draft for review · 2026-11-17
 - A crashed account reloads on its own.
 - A Windows installer.
 
-**Not in v1** (may come later): auto-update, start with Windows, per-account mute, themes, translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
+**Not in v1** (may come later): auto-update, start with Windows, per-account mute, extra themes and a theme picker (the token system is v1; more themes are not), translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
 
 **Non-goals, on purpose**
 - Never pretend to be the official WhatsApp app: no native "bridges", no `X-WA-WebView2-Version` header, no fake user agent. We are a plain browser showing WhatsApp Web.
@@ -32,16 +34,21 @@ Status: draft for review · 2026-11-17
 ## 3. Architecture
 
 ```
-Main window (Tauri)
-├── "ui" webview: local tab bar  (top strip, ~36 px, our own HTML)
-└── one webview per account, all stacked in the area below
+Main window (Tauri, no system frame)
+├── "ui" webview: our own chrome, full window, behind the accounts
+│     title bar 40 px · rail 72 px · pane headers 44 px · status bar 28 px
+└── one webview per account
+     ├── 0, 1 or 2 placed in the pane rectangles (Single / Split)
+     ├── the rest kept alive but out of view (see below)
      ├── url: https://web.whatsapp.com/
      ├── own data folder: %LOCALAPPDATA%\WACH\accounts\<id>\
      └── initialization script: wach-page.js
 ```
 
 - Multiple webviews in one window needs Tauri's `unstable` feature (`Window::add_child`). **Risk**, checked in the spike.
-- Switching tabs changes which account webview is on top. **Open question for the spike:** hiding a webview sets WebView2 `IsVisible=false`, which lets Chromium throttle timers and may slow the WhatsApp connection or notifications. If so, keep every account "visible" and switch by z-order or by moving inactive ones out of view, never by hiding.
+- **Layout is owned by Rust.** The ui webview reports the two pane body rectangles (on resize, divider drag, Single/Split) through one command; Rust validates them and calls `set_position` / `set_size` on the account webviews. Up to two account webviews are on screen at once.
+- **Custom title bar:** `decorations: false`, drag regions via `data-tauri-drag-region`, our own min/max/close buttons. Keep Windows 11 Snap Layouts on the maximise button if Tauri allows it; otherwise note it as a known gap.
+- Switching accounts changes which webviews sit in the panes. **Open question for the spike:** hiding a webview sets WebView2 `IsVisible=false`, which lets Chromium throttle timers and may slow the WhatsApp connection or notifications. If so, keep every account "visible" and park inactive ones out of view (or behind the ui), never hide them.
 - The ui webview talks to Rust through Tauri commands. Account webviews get **one** command only, `wach_page_event`, allowed through a capability for `https://web.whatsapp.com/*`. Rust checks that the calling webview's label is a known account and takes the account id from the label, never from the message.
 
 ### Account isolation
@@ -70,6 +77,9 @@ Option B (if A is too heavy): one shared environment with a WebView2 **profile**
 | 4.14 | Zoom | Ctrl +/−/0 per account, 50–250 % | Altus + |
 | 4.15 | Closing an account | Remove its webview, record its id; delete its data folder at the **next** start (files are locked while running); never delete when several accounts vanish at once; keep the last closed one for "reopen" | Altus + `partitions.ts` |
 | 4.16 | WebView2 options | Turn off Microsoft data reporting where WebView2 allows; no extra browser flags unless measured | official app |
+| 4.17 | Split view | Single/Split switch, two pane rectangles from the ui webview, account per pane, focused pane (glow border, gets keys), swap, focus, close pane, divider drag (ratio saved), auto-Single below ~700 px. One account is in one pane at most. Shortcuts: `Ctrl+\`, `Ctrl+Tab`, `Ctrl+U`, `Ctrl+1–9` (DESIGN.md §2) | WACH's own |
+| 4.18 | Design tokens | `ui/tokens.css` holds every design value; components use role tokens only; theme = a file that overrides tokens; Rust reads window/tray colours from the theme, not hard-coded; a check script fails the build on raw hex/px/shadow outside `tokens.css` (DESIGN.md §7) | WACH's own |
+| 4.19 | App icon | Split bubble logo, master `assets/logo.svg`, exported to `icons/` (ICO + PNGs) and three tray states (normal, unread, muted) (DESIGN.md §5) | WACH's own |
 
 ### Page script (`wach-page.js`)
 
@@ -81,7 +91,7 @@ Runs at document start in every account webview. Must:
 ## 5. Data and settings
 
 `%LOCALAPPDATA%\WACH\`
-- `config.json` — accounts `[ {id, name, color, notifications, media} ]`, selected id, window state, settings (close-to-tray). Written atomically (temp file + rename).
+- `config.json` — accounts `[ {id, name, color, notifications, media} ]`, layout `{mode: "single"|"split", left, right, focused, ratio}`, window state, settings (close-to-tray, theme, glow size). Written atomically (temp file + rename).
 - `accounts\<id>\` — WebView2 data per account.
 - `closed.json` — accounts waiting for deletion.
 
@@ -90,8 +100,8 @@ Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.
 ## 6. Milestones (each ends with something you can run)
 
 0. **Setup** — install `rustup` (MSVC toolchain) and Visual Studio C++ Build Tools; `cargo create-tauri-app` with vanilla template, strip it.
-1. **Spike (go/no-go)** — window + 2 account webviews with separate data folders. Pass when: both log in, both stay logged in after restart, the hidden account still delivers a notification within 10 s, and memory per account is written down. Also try Option B if A costs > 150 MB per account.
-2. **Tabs** — tab bar, add/rename/close/reorder, `config.json`, closed-account cleanup.
+1. **Spike (go/no-go)** — window + 2 account webviews with separate data folders, **placed side by side**. Pass when: both log in, both stay logged in after restart, a third out-of-view account still delivers a notification within 10 s, resizing the window keeps both panes in place without flicker, and memory per account is written down. Also try Option B if A costs > 150 MB per account.
+2. **Shell and split view** — `ui/tokens.css` + Night Signal theme, custom title bar, rail, pane headers, status bar; Single/Split, swap, focus, divider; add/rename/close/reorder accounts, `config.json`, closed-account cleanup; logo and icon set in place.
 3. **Page script** — unread counts, notifications with names, toast click → right tab, link rules, permissions.
 4. **Windows bits** — tray, overlay dot, single instance, window position check, crash reload, context menu, offline page, zoom.
 5. **Installer** — Tauri NSIS bundle, per-user install, Start-menu shortcut with AppUserModelID, uninstall removes `%LOCALAPPDATA%\WACH` only if the user ticks it.
@@ -111,9 +121,13 @@ Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.
 | Toast clicks unpackaged | Clicks do nothing | AUMID + shortcut from installer; pick toast crate in milestone 3 |
 | WhatsApp Web blocks or changes | App breaks | Keep page script minimal; we use only `<title>` and `Notification` |
 | Calls in WhatsApp Web inside WebView2 | May not work | Test in milestone 3; if unsupported, say so in the README |
+| Two native webviews next to an HTML layout | Panes lag or flicker on resize | Rust owns the rectangles; batch updates per frame; test in the spike |
+| Custom title bar | Lose Snap Layouts / native feel | Try Tauri's options first; fall back to the system frame if it feels wrong |
 
 ## 9. Ground rules
 
 - Security first, then stability, then resource use (same order as Altus +).
 - No telemetry. The only network traffic is WhatsApp Web itself.
 - `_wa-analysis/` holds copies of WhatsApp's own files for reference only: never commit or ship them.
+- No hard-coded design values: colours, radii, sizes, spacing, shadows, fonts and timings go through tokens (DESIGN.md §7).
+- The app loads nothing from the internet except WhatsApp Web: fonts and icons ship inside `ui/`.
