@@ -9,6 +9,7 @@ Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into 
 - Public repo: https://github.com/vincentrathbone-web/wach (MIT). Release **v0.2.0** with installer, `.sig` and `latest.json`; the update feed URL answers 200.
 - Installed on the user's PC: 0.2.0, both real accounts logged in (Personal, Business), checked by screenshot.
 - **v0.2.1 released** (2026-11-18, no app changes, to test the updater). The installed 0.2.0 found it on its own ~30 s after start: status bar showed "Update 0.2.1 ready · Restart". Clicking it (download → passive install → restart) is left to the user, since synthetic clicks don't reach WACH.
+- **v0.2.2 released** (2026-11-18): update chip moved to the title bar, right of the logo. The installed 0.2.0 found it ("Update 0.2.2 ready · Restart").
 - Updater key: two copies on this PC, `%USERPROFILE%\.tauri\wach-updater.key` (what `release.ps1` uses) and `wach-updater.key` (+ `.pub`) in the repo folder, git-ignored by `*.key` / `*.key.pub` (checked with `git check-ignore`). The user should also keep one off this PC.
 
 ### Login incident during the 0.2.0 install (read this before touching profile folders)
@@ -51,7 +52,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 | 3 · Inside WhatsApp | Done — real-notification check needs a phone |
 | 4 · Windows integration | Done |
 | 5 · Installer | Done — installed on this PC; clean-user test left |
-| 6 · Updates, tray, autostart (0.2.0) | Released (public repo, v0.2.0 + v0.2.1); 0.2.0 finds 0.2.1; install-by-click left to the user |
+| 6 · Updates, tray, autostart (0.2.0) | Released (public repo, v0.2.0, v0.2.1, v0.2.2); installed 0.2.0 finds the newest; install-by-click left to the user |
 
 ## How to build, run and test
 
@@ -94,8 +95,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - `ui/selftest.js` ships inside the release build (harmless: the debug commands it needs don't exist there). Could be left out later.
 - An empty `EBWebView` folder appears in the data root (WebView2 default folder from the main window); harmless.
 - Fable 5.2 review of PLAN.md (was blocked by usage credits).
-- Confirm the click on "Update 0.2.1 ready · Restart" installs 0.2.1 and keeps both logins.
-- Update chip moved to the title bar (committed, self-test passes); reaches the user only with the next release (0.2.2).
+- Confirm the click on "Update 0.2.2 ready · Restart" (installed 0.2.0 shows it, checked) installs 0.2.2, keeps both logins, and that the chip then appears in the title bar for later updates.
 - Clean up the leftover login copies listed under "Login incident" once the user is happy.
 
 ## Issues found
