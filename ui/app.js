@@ -199,9 +199,11 @@ function renderPane(side) {
   chip.dataset.color = a ? a.color : "";
   chip.setAttribute("aria-label", `Choose the account in the ${side ? "right" : "left"} pane`);
   chip.replaceChildren(
-    a ? h("span", { class: "avatar", text: initial(a.name) }) : null,
-    h("span", { class: "name", text: a ? a.name : "Choose account" }),
-    icon("i-chevron"),
+    ...[
+      a ? h("span", { class: "avatar", text: initial(a.name) }) : null,
+      h("span", { class: "name", text: a ? a.name : "Choose account" }),
+      icon("i-chevron"),
+    ].filter(Boolean), // replaceChildren would print null as text
   );
   const dot = $(".dot", pane);
   dot.className = "dot" + (!a ? " off" : S.crashed[a.id] ? " warn" : "");

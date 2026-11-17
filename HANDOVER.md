@@ -26,7 +26,7 @@ Last updated: 2026-11-17 (after phase 5)
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
 - Installer: kill `wach.exe`, add `D:\Dev\toolshed\nsis` to PATH, run `tauri.cmd build` from `src-tauri` → `target\release\bundle\nsis\WACH_0.1.0_x64-setup.exe` (~1.2 MB, ~5 min). `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
 - App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `accounts\<id>\` (one WebView2 folder per account), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
-- Test data currently on this PC: 3 fake accounts (Work/Personal/Family, ids `Test…`), not logged in.
+- On this PC: the installed release build, no accounts yet (the 3 fake test accounts were removed so the user can add real ones). The self-test needs 3 accounts — add test ones first when running it.
 
 ## Code map
 
@@ -76,4 +76,5 @@ Last updated: 2026-11-17 (after phase 5)
 - `PrintWindow` screenshots do include WebView2 content; listing child windows (`WRY_WEBVIEW`) with their rectangles is a quick way to check placement.
 - Tauri's NSIS installs to `%LOCALAPPDATA%\<productName>` but its "delete app data" box removes `%LOCALAPPDATA%\<identifier>`. Keep app data under the identifier (`app_local_data_dir()`), never under the product name.
 - Window position is saved only on exit (`ExitRequested`), so `Stop-Process` loses a move. To test it, turn tray off and send WM_CLOSE.
+- `element.replaceChildren(x ? node : null)` prints the word "null" — filter children first (our `h()` helper already does).
 - PowerShell `Set-Content` on Rust files can change line endings; prefer the editor tools for code edits.
