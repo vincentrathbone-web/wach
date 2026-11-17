@@ -171,8 +171,21 @@ impl Store {
         self.root.join("accounts")
     }
 
+    /// Old layout (one WebView2 data folder per account). Still cleaned up.
     pub fn account_dir(&self, id: &str) -> Option<PathBuf> {
         rules::valid_id(id).then(|| self.accounts_dir().join(id))
+    }
+
+    /// One WebView2 data folder shared by all accounts (one browser process
+    /// tree); each account is a WebView2 profile inside it.
+    pub fn shared_dir(&self) -> PathBuf {
+        self.root.join("profiles")
+    }
+
+    /// Where WebView2 keeps one account's profile inside the shared folder.
+    pub fn profile_dir(&self, id: &str) -> Option<PathBuf> {
+        // WebView2 stores a named profile in EBWebView\WV2Profile_<name>.
+        rules::profile_name(id).map(|name| self.shared_dir().join("EBWebView").join(format!("WV2Profile_{name}")))
     }
 
     pub fn load(&self) -> Config {
@@ -211,10 +224,9 @@ impl Store {
         let plan = cleanup_plan(&closed, cfg);
         let mut left = Vec::new();
         for id in &plan.delete {
-            if let Some(dir) = self.account_dir(id)
-                && dir.exists()
-                && fs::remove_dir_all(&dir).is_err()
-            {
+            let dirs = [self.account_dir(id), self.profile_dir(id)];
+            let failed = dirs.into_iter().flatten().any(|dir| dir.exists() && fs::remove_dir_all(&dir).is_err());
+            if failed {
                 left.push(id.clone());
             }
         }

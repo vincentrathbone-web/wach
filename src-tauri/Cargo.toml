@@ -40,6 +40,12 @@ windows = { version = "0.62", features = [
   "UI_Notifications",
 ] }
 
+# Option B: our copy of tauri-runtime-wry 2.12.4 with one small change — on
+# Windows it passes `data_store_identifier` to wry as a WebView2 profile name
+# (search "WACH patch"). Drop this once Tauri supports profiles itself.
+[patch.crates-io]
+tauri-runtime-wry = { path = "patches/tauri-runtime-wry" }
+
 [profile.release]
 codegen-units = 1
 lto = true

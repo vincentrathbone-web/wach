@@ -60,6 +60,24 @@ pub fn valid_id(id: &str) -> bool {
     id.len() == 12 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
+/// The 16-byte key Tauri's `data_store_identifier` takes: the id's bytes,
+/// zero-padded. Our patched tauri-runtime-wry uses its hex as the WebView2
+/// profile name (see `profile_name`).
+pub fn profile_key(id: &str) -> Option<[u8; 16]> {
+    if !valid_id(id) {
+        return None;
+    }
+    let mut key = [0u8; 16];
+    key[..id.len()].copy_from_slice(id.as_bytes());
+    Some(key)
+}
+
+/// The WebView2 profile name the patch makes from `profile_key` (lowercase
+/// hex, so ids that differ only in case never share a folder).
+pub fn profile_name(id: &str) -> Option<String> {
+    profile_key(id).map(|k| k.iter().map(|b| format!("{b:02x}")).collect())
+}
+
 pub fn new_id() -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut bytes = [0u8; 12];
@@ -153,6 +171,17 @@ pub fn may_reload(history: &mut Vec<u64>, now: u64, max: usize, window_secs: u64
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_keys() {
+        let k = profile_key("Ab3_-xyz0123").unwrap();
+        assert_eq!(&k[..12], b"Ab3_-xyz0123");
+        assert_eq!(&k[12..], &[0, 0, 0, 0]);
+        assert!(profile_key("../../evil00").is_none());
+        assert!(profile_key("short").is_none());
+        assert_ne!(profile_name("abcdefghijkl"), profile_name("ABCDEFGHIJKL"));
+        assert_eq!(profile_name("AAAAAAAAAAAA").unwrap(), format!("{}{}", "41".repeat(12), "00".repeat(4)));
+    }
 
     fn u(s: &str) -> Url {
         Url::parse(s).unwrap()

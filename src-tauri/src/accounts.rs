@@ -25,7 +25,10 @@ pub fn get(app: &AppHandle, id: &str) -> Option<Webview> {
 
 pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webview> {
     let state = app.state::<App>();
-    let dir = state.store.account_dir(id).ok_or_else(|| tauri::Error::AssetNotFound(id.into()))?;
+    // All accounts share one WebView2 data folder (one browser process tree);
+    // each one is its own WebView2 profile, so cookies and storage stay apart.
+    let key = rules::profile_key(id).ok_or_else(|| tauri::Error::AssetNotFound(id.into()))?;
+    let dir = state.store.shared_dir();
     let bg = state.cfg.lock().unwrap().settings.theme.background;
     let url: Url = format!("{}/", rules::WHATSAPP_ORIGIN).parse().expect("static url");
 
@@ -36,6 +39,7 @@ pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webvi
 
     let builder = WebviewBuilder::new(label(id), WebviewUrl::External(url))
         .data_directory(dir)
+        .data_store_identifier(key)
         .background_color(Color(bg[0], bg[1], bg[2], 255))
         .devtools(cfg!(debug_assertions))
         .zoom_hotkeys_enabled(false)

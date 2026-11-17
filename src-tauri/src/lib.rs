@@ -506,8 +506,15 @@ pub fn run() {
             // %LOCALAPPDATA%\app.wach.desktop — kept apart from the install
             // folder (%LOCALAPPDATA%\WACH), and the folder the uninstaller's
             // "delete app data" box removes.
-            let root = app.path().app_local_data_dir()?;
-            move_old_data(&app.path().local_data_dir()?.join("WACH"), &root);
+            let mut root = app.path().app_local_data_dir()?;
+            // Debug builds only: WACH_DATA_DIR keeps tests away from real logins.
+            if cfg!(debug_assertions)
+                && let Some(dir) = std::env::var_os("WACH_DATA_DIR")
+            {
+                root = dir.into();
+            } else {
+                move_old_data(&app.path().local_data_dir()?.join("WACH"), &root);
+            }
             std::fs::create_dir_all(root.join("accounts"))?;
             let store = Store::new(root.clone());
             let cfg = store.load();

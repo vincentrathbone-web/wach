@@ -3716,8 +3716,6 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "2.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d9be5e7af9560a4a60cdd441389a066cdd3e7c5d464a006ae34cb276cc78abd"
 dependencies = [
  "gtk",
  "http",
