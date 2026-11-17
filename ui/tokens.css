@@ -1,0 +1,147 @@
+/* WACH design tokens — the ONLY file with raw design values.
+   Theme "Night Signal" (DESIGN.md §3–4). A new theme overrides these. */
+
+:root {
+  color-scheme: dark;
+
+  /* Palette */
+  --color-abyss: #070b16;
+  --color-navy: #0b1224;
+  --color-panel: #111a31;
+  --color-raised: #17223f;
+  --color-line: #24304f;
+  --color-ink: #e7edfb;
+  --color-mist: #93a1c4;
+  --color-haze: #5d6b8f;
+  --color-signal: #2a64f6;
+  --color-sky: #6fb1ff;
+  --color-ice: #b9d8ff;
+  --color-deep: #173a99;
+  --color-white: #ffffff;
+  --color-online: #34d399;
+  --color-waiting: #fbbf24;
+  --color-alert: #ff6b81;
+  --color-dim-ring: #3a4a72;
+  --color-scrim: rgba(7, 11, 22, 0.72);
+
+  /* Logo gradient */
+  --logo-from: #7cbcff;
+  --logo-to: #2a64f6;
+  --logo-pane-dark: #0b1224;
+  --logo-pane-light: #ffffff;
+
+  /* Account colours (keys stored in config) */
+  --account-sky: #6fb1ff;
+  --account-violet: #a78bfa;
+  --account-mint: #34d399;
+  --account-amber: #fbbf24;
+  --account-rose: #ff6b81;
+  --account-teal: #2dd4bf;
+
+  /* Glow */
+  --glow-size: 24px;
+  --glow-color: rgba(61, 139, 255, 0.35);
+  --glow-strong: rgba(42, 100, 246, 0.6);
+  --glow-ring: rgba(111, 177, 255, 0.25);
+  --glow-focus: 0 0 0 1px var(--glow-ring), 0 0 var(--glow-size) var(--glow-color);
+  --glow-button: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
+  --glow-badge: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.5);
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-pill: 999px;
+
+  /* Space */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Sizes */
+  --size-titlebar: 40px;
+  --size-rail: 72px;
+  --size-pane-header: 44px;
+  --size-statusbar: 28px;
+  --size-rail-button: 44px;
+  --size-icon-button: 30px;
+  --size-window-button: 46px;
+  --size-icon: 18px;
+  --size-icon-sm: 14px;
+  --size-logo: 20px;
+  --size-avatar: 20px;
+  --size-badge: 18px;
+  --size-dot: 8px;
+  --size-marker-w: 4px;
+  --size-marker-h: 16px;
+  --size-swatch: 32px;
+  --size-input: 36px;
+  --size-button: 36px;
+  --size-sheet: 420px;
+  --size-divider: 8px;
+  --size-edge: 6px;
+  --pane-gap: 8px;
+  --pane-min: 260px;
+
+  /* Borders */
+  --border-width: 1px;
+  --border-strong: 2px;
+  --focus-ring: 2px solid var(--color-sky);
+
+  /* Type */
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-brand: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+  --weight-heavy: 700;
+  --tracking-brand: 0.06em;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --speed: 140ms;
+
+  /* ---- Role tokens: components use these ---- */
+  --app-bg: var(--color-abyss);
+  --surface: var(--color-navy);
+  --bar-bg: var(--color-panel);
+  --hover-bg: var(--color-raised);
+  --border: var(--color-line);
+  --text: var(--color-ink);
+  --text-muted: var(--color-mist);
+  --text-faint: var(--color-haze);
+  --accent: var(--color-sky);
+  --primary: var(--color-signal);
+  --on-primary: var(--color-white);
+  --badge-bg: var(--color-signal);
+  --badge-text: var(--color-white);
+  --pane-border: var(--color-line);
+  --pane-border-focused: var(--color-sky);
+  --rail-ring-focused: var(--color-sky);
+  --rail-ring-other: var(--color-dim-ring);
+  --divider-grip: var(--color-dim-ring);
+  --danger: var(--color-alert);
+  --ok: var(--color-online);
+  --warn: var(--color-waiting);
+  --initial-text: var(--color-navy);
+  --scrim: var(--color-scrim);
+  --kbd: var(--color-ice);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --speed: 0ms; }
+}

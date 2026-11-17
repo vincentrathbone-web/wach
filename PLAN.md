@@ -2,7 +2,23 @@
 
 A small Windows app that shows several WhatsApp Web accounts side by side, each fully separate, without Electron.
 
-Status: draft for review · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md)
+Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · session notes in [HANDOVER.md](HANDOVER.md)
+
+## Progress
+
+| Milestone | State | Notes |
+|---|---|---|
+| 0 · Setup | ✅ Done | Tauri 2.12, MSVC toolchain pinned |
+| 1 · Spike | ✅ Done (2 manual checks left) | Two accounts side by side, separate storage, resize follows. **Measured ~370 MB private per account** (7 WebView2 processes each) → over the 150 MB line; Option B (profiles) needs Tauri to expose `with_profile_name` (wry has it). Kept Option A for now. Manual: stay-logged-in after restart, notification from a parked account |
+| 2 · Shell & split view | ✅ Done | Tokens + token check test, title bar, rail, panes, divider, sheets, shortcuts, config, cleanup. UI self-test: all pass |
+| 3 · Inside WhatsApp | 🔶 Code written, testing | Native WebView2 events instead of a page script (see 4.4/4.5) |
+| 4 · Windows bits | 🔶 Code written, testing | |
+| 5 · Installer | ⏳ Not started | |
+
+**Decisions made while building**
+- **No page script.** Unread comes from Tauri's `on_document_title_changed`; notifications come from WebView2's native `NotificationReceived` event. WhatsApp's page gets no injected code and no IPC capability at all.
+- **Inactive accounts are parked** off-window (never hidden), so WebView2 keeps them "visible".
+- **Account webviews are created off the main thread** — creating one from a sync command on the main thread deadlocks.
 
 ## 1. Goal and scope
 
@@ -64,8 +80,8 @@ Option B (if A is too heavy): one shared environment with a WebView2 **profile**
 | 4.1 | Stay on WhatsApp | `on_navigation`: allow only `https://web.whatsapp.com` (port 443); anything else http(s) → default browser, no user/password in URL; other schemes dropped | Altus + `security.ts` |
 | 4.2 | New windows / `_blank` links | WebView2 `NewWindowRequested` (via `with_webview`): always cancel; open safe http(s) URLs in the browser. `wa.me` / `api.whatsapp.com` stay in the page | Altus + preload; official app |
 | 4.3 | Permissions | WebView2 `PermissionRequested`, set **before** the first navigation: allow notifications and mic/camera only if the request comes from `web.whatsapp.com` itself and the tab's switch is on; deny everything else; never show WebView2's own prompt | Altus + `permissions.ts`; official app |
-| 4.4 | Unread count | Page script watches `<title>` with a MutationObserver, reads the number, sends `{kind:"unread", count}`; Rust validates 0–100000, updates tab bar, tray tooltip and overlay | Altus + preload |
-| 4.5 | Notifications | Page script wraps `window.Notification`: add "Account · " to the title, then forward `{kind:"notify", title, body, tag}` to Rust, which shows a Windows toast; toast click → show window, select tab, call the page's click handler. Toast clicks for an unpackaged app need an AppUserModelID and a Start-menu shortcut (installer). Library: check whether `tauri-plugin-notification` reports clicks on Windows; if not, use `tauri-winrt-notification` / `windows` toast APIs | Altus + preload; official app (native toasts) |
+| 4.4 | Unread count | **Built:** Tauri `on_document_title_changed` → `rules::unread_from_title` (0–100000) → rail badge, tray tooltip/icon, taskbar overlay. ~~Page script~~ | Altus + preload |
+| 4.5 | Notifications | **Built:** WebView2 `NotificationReceived` (`ICoreWebView2_24`), marked handled → our own toast "Account · title" via the `windows` crate under AUMID `app.wach.desktop` (registered in HKCU at start) → click shows the window, puts the account in the focused pane and calls `ReportClicked()` so WhatsApp opens the chat. ~~Page script wrapping `window.Notification`~~ | official app (native toasts) |
 | 4.6 | Tray | Tauri tray: show/hide, quit; tooltip lists unread per account; icon swaps when total > 0 | Altus + `main.ts` |
 | 4.7 | Taskbar dot | `Window::set_overlay_icon` when total unread > 0 | Altus + |
 | 4.8 | Single instance | `tauri-plugin-single-instance`: second start focuses the window | Altus + |
@@ -81,9 +97,9 @@ Option B (if A is too heavy): one shared environment with a WebView2 **profile**
 | 4.18 | Design tokens | `ui/tokens.css` holds every design value; components use role tokens only; theme = a file that overrides tokens; Rust reads window/tray colours from the theme, not hard-coded; a check script fails the build on raw hex/px/shadow outside `tokens.css` (DESIGN.md §7) | WACH's own |
 | 4.19 | App icon | Split bubble logo, master `assets/logo.svg`, exported to `icons/` (ICO + PNGs) and three tray states (normal, unread, muted) (DESIGN.md §5) | WACH's own |
 
-### Page script (`wach-page.js`)
+### Page script (`wach-page.js`) — dropped
 
-Runs at document start in every account webview. Must:
+Not needed: native WebView2 events cover unread and notifications (see 4.4/4.5). Kept here for reference only. It would have had to:
 - do nothing unless `location.origin === "https://web.whatsapp.com"`, and only in the top frame;
 - not touch WhatsApp's own objects beyond `window.Notification` and reading `<title>`;
 - send only the small fixed message set (`unread`, `notify`, `notify-click-ack`, `zoom`).

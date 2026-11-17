@@ -7,18 +7,8 @@
     "frontendDist": "../ui"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "WACH",
-        "width": 1100,
-        "height": 760,
-        "minWidth": 520,
-        "minHeight": 400,
-        "resizable": true,
-        "fullscreen": false
-      }
-    ],
+    "windows": [],
+    "withGlobalTauri": false,
     "security": {
       "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src ipc: http://ipc.localhost"
     }

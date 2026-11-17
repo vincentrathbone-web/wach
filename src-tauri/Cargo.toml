@@ -14,9 +14,31 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7.4" }
 
 [dependencies]
-tauri = { version = "2.12.5" }
+# "unstable" = several webviews in one window (Window::add_child).
+tauri = { version = "2.12.5", features = ["unstable", "tray-icon", "image-png"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# Already in Tauri's tree; used for account ids.
+getrandom = "0.3"
+tauri-plugin-single-instance = "2"
+# Already in Tauri's tree; only for ResizeDirection, which Tauri does not re-export.
+tauri-runtime = "2.12"
+
+[target.'cfg(windows)'.dependencies]
+# Same versions Tauri/wry use, so the WebView2 types match.
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Registry",
+  "Win32_System_Com",
+  "Data_Xml_Dom",
+  "Foundation",
+  "UI_Notifications",
+] }
 
 [profile.release]
 codegen-units = 1

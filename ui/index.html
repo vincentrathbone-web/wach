@@ -1,15 +1,116 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WACH</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WACH</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
 </head>
 <body>
-  <main>
-    <h1>WACH</h1>
-    <p>Phase 0: the blank window works.</p>
-  </main>
+<svg class="sprite" aria-hidden="true">
+  <defs>
+    <linearGradient id="logo-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" class="logo-from"></stop>
+      <stop offset="1" class="logo-to"></stop>
+    </linearGradient>
+    <symbol id="logo" viewBox="0 0 64 64">
+      <path class="logo-bubble" d="M15 7h34a11 11 0 0 1 11 11v21a11 11 0 0 1-11 11H28l-12 9v-9.3A11 11 0 0 1 4 39V18A11 11 0 0 1 15 7z"></path>
+      <rect class="logo-dark" x="13" y="16" width="17" height="25" rx="3"></rect>
+      <rect class="logo-light" x="34" y="16" width="17" height="25" rx="3"></rect>
+    </symbol>
+    <symbol id="i-new" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M12 7.5v6 M9 10.5h6"></path></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"></path></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 7h13 M16 3l4 4-4 4 M17 17H4 M8 13l-4 4 4 4"></path></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 9V4h5 M15 4h5v5 M20 15v5h-5 M9 20H4v-5"></path></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12 M18 6L6 18"></path></symbol>
+    <symbol id="i-min" viewBox="0 0 24 24"><path d="M5 12h14"></path></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"></path></symbol>
+    <symbol id="i-restore" viewBox="0 0 24 24"><path d="M8 8h11v11H8z M5 16V5h11"></path></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10 M18 7h2 M16 5v4 M4 17h4 M12 17h8 M10 15v4"></path></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"></path></symbol>
+    <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7 M20 4v7h-7"></path></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z M10 21h4"></path></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z M10 21h4 M3 3l18 18"></path></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path d="M6 11h12v10H6z M8 11V8a4 4 0 0 1 8 0v3"></path></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+  <header class="titlebar" id="titlebar">
+    <svg class="logo" aria-hidden="true"><use href="#logo"></use></svg>
+    <span class="brand">WACH</span>
+    <div class="grow drag"></div>
+    <div class="segmented" role="group" aria-label="Layout">
+      <button type="button" id="btn-single" aria-pressed="false">Single</button>
+      <button type="button" id="btn-split" aria-pressed="true">Split</button>
+    </div>
+    <div class="grow drag"></div>
+    <button type="button" class="win-btn" id="btn-min" aria-label="Minimize"><svg><use href="#i-min"></use></svg></button>
+    <button type="button" class="win-btn" id="btn-max" aria-label="Maximize"><svg><use href="#i-max"></use></svg></button>
+    <button type="button" class="win-btn close" id="btn-close" aria-label="Close"><svg><use href="#i-close"></use></svg></button>
+  </header>
+
+  <div class="body">
+    <nav class="rail" aria-label="Accounts">
+      <div class="rail-list" id="rail-list"></div>
+      <button type="button" class="rail-add" id="btn-add" aria-label="Add account" title="Add account"><svg><use href="#i-plus"></use></svg></button>
+      <div class="grow"></div>
+      <button type="button" class="icon-btn" id="btn-settings" aria-label="Settings" title="Settings"><svg><use href="#i-settings"></use></svg></button>
+    </nav>
+
+    <main class="panes" id="panes">
+      <section class="pane" data-side="0">
+        <header class="pane-head">
+          <button type="button" class="chip" data-act="pick"></button>
+          <span class="dot"></span>
+          <span class="side-label">Left</span>
+          <div class="grow"></div>
+          <button type="button" class="icon-btn" data-act="reload" aria-label="Reload this account" title="Reload"><svg><use href="#i-reload"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="swap" aria-label="Swap panes" title="Swap panes (Ctrl+U)"><svg><use href="#i-swap"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="focus" aria-label="Show only this pane" title="Show only this pane"><svg><use href="#i-focus"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="close" aria-label="Close pane" title="Close pane"><svg><use href="#i-close"></use></svg></button>
+        </header>
+        <div class="pane-body"><div class="empty"></div></div>
+      </section>
+      <div class="divider" id="divider" role="separator" aria-label="Resize panes" title="Drag to resize · double-click to reset"><span></span></div>
+      <section class="pane" data-side="1">
+        <header class="pane-head">
+          <button type="button" class="chip" data-act="pick"></button>
+          <span class="dot"></span>
+          <span class="side-label">Right</span>
+          <div class="grow"></div>
+          <button type="button" class="icon-btn" data-act="reload" aria-label="Reload this account" title="Reload"><svg><use href="#i-reload"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="swap" aria-label="Swap panes" title="Swap panes (Ctrl+U)"><svg><use href="#i-swap"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="focus" aria-label="Show only this pane" title="Show only this pane"><svg><use href="#i-focus"></use></svg></button>
+          <button type="button" class="icon-btn split-only" data-act="close" aria-label="Close pane" title="Close pane"><svg><use href="#i-close"></use></svg></button>
+        </header>
+        <div class="pane-body"><div class="empty"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="statusbar">
+    <span class="status" id="status"><span class="dot ok"></span><span id="status-text">Ready</span></span>
+    <span class="grow"></span>
+    <span class="keys"><kbd>Ctrl+\</kbd> split</span>
+    <span class="keys"><kbd>Ctrl+Tab</kbd> other pane</span>
+    <span class="keys"><kbd>Ctrl+U</kbd> swap</span>
+    <span class="keys"><kbd>Ctrl+1–9</kbd> account</span>
+  </footer>
+
+  <div class="sheet-scrim" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 id="sheet-title"></h2>
+      <div id="sheet-body"></div>
+    </div>
+  </div>
+
+  <div class="edges" id="edges">
+    <div data-edge="n"></div><div data-edge="s"></div><div data-edge="e"></div><div data-edge="w"></div>
+    <div data-edge="nw"></div><div data-edge="ne"></div><div data-edge="sw"></div><div data-edge="se"></div>
+  </div>
+</div>
 </body>
 </html>
