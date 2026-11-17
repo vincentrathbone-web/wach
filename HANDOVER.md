@@ -64,6 +64,7 @@ Last updated: 2026-11-17 (after phase 5)
 - **Memory:** ~370 MB private per account (each data folder = its own browser, GPU and utility processes) + ~150 MB for our UI webview. Over the plan's 150 MB line. Option B (one environment, a WebView2 *profile* per account) would share those processes, but Tauri 2.12 does not pass `profile_name` through to wry (wry 0.57 has `with_profile_name`). Needs a small Tauri patch or upstream PR.
 - WhatsApp Web shows a horizontal scrollbar when a pane is under ~600 px wide. Ctrl+− per account helps; maybe default split panes to 90 % zoom later.
 - The WhatsApp page's square corners sit over our pane's rounded bottom corners (cosmetic).
+- **Task Manager** lists WACH's WebView2 processes as separate "WebView2 Manager" / "Utility" rows, not under WACH. That is how current Windows 11 shows every WebView2 app (Outlook and Search look the same here); the processes really are children of `wach.exe`. Tested: dropping our process AppUserModelID changes nothing. Each account's own data folder = its own process tree, so more accounts = more rows. Option B (shared profiles) would merge them into one tree.
 - Snap Layouts on the maximise button are not available with our custom title bar (known gap).
 
 ## Lessons learnt
