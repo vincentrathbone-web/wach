@@ -1,0 +1,6 @@
+# WACH builds with Microsoft's toolchain; the machine's default (GNU) stays as it is.
+[toolchain]
+channel = "stable"
+targets = ["x86_64-pc-windows-msvc"]
+components = ["rustfmt", "clippy"]
+profile = "minimal"

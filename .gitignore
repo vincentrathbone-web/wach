@@ -1,0 +1,17 @@
+# Build output
+/src-tauri/target/
+/src-tauri/gen/schemas
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Never commit WhatsApp's own files or local test data
+_wa-analysis/
+*.dll
+*.exe
+!/src-tauri/icons/**
