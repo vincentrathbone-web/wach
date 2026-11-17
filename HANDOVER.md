@@ -4,6 +4,19 @@ Notes for whoever picks this up next (a person or a new Claude session). Short o
 
 Last updated: 2026-11-17 (after phase 5)
 
+## Branch `option-b-profiles` (not merged)
+
+All accounts share one WebView2 data folder (`profiles\`) = one browser process tree; each account is a WebView2 **profile** (`profiles\EBWebView\WV2Profile_<hex of id>`). Needs our vendored `src-tauri/patches/tauri-runtime-wry` (search "WACH patch": `data_store_identifier` → profile name, lowercase hex because WebView2 lowercases profile folder names).
+
+Measured, 3 test accounts on the QR page + WACH's UI, ~40 s after start:
+
+| | Browser trees | Processes | Private memory |
+|---|---|---|---|
+| main (one folder per account) | 4 | 29 | 1306 MB |
+| this branch (profiles) | 2 | 18 | 1151 MB |
+
+Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash of the shared browser process takes all accounts down at once (each reloads on its own); switching means scanning QR codes again (old `accounts\<id>` folders are left alone). Debug builds also accept `WACH_DATA_DIR` to test in a separate folder. Self-test 30/30, unit tests pass, cleanup of removed profiles tested.
+
 ## Where we are
 
 | Phase | State |

@@ -71,7 +71,7 @@ Main window (Tauri, no system frame)
 
 Option A (start here): give each account webview its own data directory (`WebviewBuilder::data_directory`). Simple and known to work, but each data directory starts its own WebView2 browser process group (roughly +80–150 MB per account).
 
-Option B (if A is too heavy): one shared environment with a WebView2 **profile** per account (`ProfileName`), which shares one browser process. Tauri does not expose profiles, so this needs creating the controller ourselves via `webview2-com`. Decide after measuring A in the spike.
+Option B (if A is too heavy): one shared environment with a WebView2 **profile** per account (`ProfileName`), which shares one browser process. Tauri does not expose profiles, so this needs creating the controller ourselves via `webview2-com`. Decide after measuring A in the spike. **Built on branch `option-b-profiles`** with a one-change patch of tauri-runtime-wry (Tauri's `data_store_identifier` → WebView2 profile name). 3 accounts: 1151 MB / 2 process trees vs 1306 MB / 4 trees on main. See HANDOVER.md.
 
 ## 4. Features and how each is built
 
