@@ -148,6 +148,18 @@ window.WACH_SELFTEST = async function (api) {
   await sleep(200);
   const chip = document.getElementById("update-chip");
   await check("update chip only for a ready update", chip.hidden === (u.state !== "available"));
+  // Placement: title bar, right after the brand, left of the layout switch.
+  const wasHidden = chip.hidden, wasText = chip.textContent;
+  chip.hidden = false;
+  if (!wasText) chip.textContent = "Update 9.9.9 ready · Restart";
+  const brand = document.querySelector("#titlebar .brand").getBoundingClientRect();
+  const seg = document.querySelector("#titlebar .segmented").getBoundingClientRect();
+  const c = chip.getBoundingClientRect();
+  await check("update chip sits right of the logo in the title bar",
+    chip.parentElement.id === "titlebar" && c.left > brand.right && c.right < seg.left && c.top >= 0 && c.bottom <= brand.bottom + 12,
+    JSON.stringify({ chip: [c.left, c.right, c.top, c.bottom], brand: brand.right, seg: seg.left }));
+  chip.hidden = wasHidden;
+  chip.textContent = wasText;
 
   await log(`done: ${fails === 0 ? "ALL PASS" : fails + " FAILED"}`);
   // Leave Settings open so a screenshot can check the sheet by eye.

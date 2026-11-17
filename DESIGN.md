@@ -38,7 +38,8 @@ Design canvas (all options, private link): https://claude.ai/artifact/H6ZXDkxhxb
   - connection dot and "Left" / "Right",
   - Swap panes, Focus (go to Single with this pane), Close pane.
 - The **focused pane** has a Sky border with the glow. Typing and shortcuts go to it.
-- **Status bar:** connection summary on the left (adds "· notifications muted" while muted), the main shortcuts on the right. When an update is ready, an "Update x ready · Restart" chip appears in it (tokens only); clicking it installs.
+- **Status bar:** connection summary on the left (adds "· notifications muted" while muted), the main shortcuts on the right.
+- **Update chip:** when an update is ready, an "Update x ready · Restart" pill appears in the **title bar, right after the logo and "WACH"** (tokens only; moved there from the status bar in 0.2.2 at the user's request). Clicking it installs.
 - **Settings sheet (0.2.0):** Start with Windows checkbox; notifications as a wide segmented control (On / Mute 1 hour / Mute until I turn them on); update row with a "Check for updates" / "Install" button, an error line and the version.
 - **Tray menu (0.2.0):** accounts with unread ("Name  (n)", click opens), Mute submenu, Start with Windows check, Check for updates / Install update, Show, Quit.
 - Narrow windows (below about 700 px wide): Split turns into Single on its own and comes back when there is room.
