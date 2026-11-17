@@ -2,7 +2,22 @@
 
 Notes for whoever picks this up next (a person or a new Claude session). Short on purpose: the plan and progress table are in [PLAN.md](PLAN.md), the look in [DESIGN.md](DESIGN.md).
 
-Last updated: 2026-11-18 (0.2.0: updates, tray menu, start with Windows)
+Last updated: 2026-11-18 (0.2.0 released and installed on the user's PC)
+
+## Release state
+
+- Public repo: https://github.com/vincentrathbone-web/wach (MIT). Release **v0.2.0** with installer, `.sig` and `latest.json`; the update feed URL answers 200.
+- Installed on the user's PC: 0.2.0, both real accounts logged in (Personal, Business), checked by screenshot.
+- **Next update test:** release 0.2.1 (`scripts\release.ps1 -Version 0.2.1 -Notes "…" -Publish`, only with the user's OK), then check the installed copy shows "Update ready · Restart" and updates itself.
+- Updater key `%USERPROFILE%\.tauri\wach-updater.key`: the user should keep a copy somewhere safe.
+
+### Login incident during the 0.2.0 install (read this before touching profile folders)
+
+- After installing 0.2.0 both accounts showed the QR code. The folder move itself worked (data intact, path now max 231 chars).
+- Cause found: the Option B profiles (`profiles\…\WV2Profile_<hex>`) **never held a login on disk** — no `last-wid-md` / `WALid` in their Local Storage, and the IndexedDB stopped changing ~15 min after the user scanned. The backup taken right before the install is the same. Why the Option B login didn't stick is **not known** (maybe the session was dropped by WhatsApp while we kept restarting/killing WACH in tests). Watch for it: if a login disappears again, check `Local Storage\leveldb` for `last-wid-md` first.
+- Fix used: the older one-folder-per-account data (`accounts\<id>\EBWebView\Default`, still logged in) copied into `wv\EBWebView\WV2Profile_<base32>`. A Default folder works as a profile folder as is. Tested in `D:\wtest5` first, including a forced close + restart, then copied into the real data.
+- Left on disk (private login data, can be deleted once the user is happy): `D:\VS Code\WACH - Whatsapp Client\login-backup-2026-11-18` (pre-install backup, not logged in), `%LOCALAPPDATA%\app.wach.desktop-qr-aside` (the QR-only profiles), `D:\wtest4`, `D:\wtest5` (**a copy of the live logins: never run WACH on it again**, two copies of one linked device can get it logged out). `accounts\<id>\` is still there too; nothing deletes it.
+- Quick way to tell if a WhatsApp profile is logged in: `Select-String -SimpleMatch last-wid-md` over `<profile>\Local Storage\leveldb\*.log`.
 
 ## 0.2.0 — what's new
 
@@ -36,6 +51,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 | 3 · Inside WhatsApp | Done — real-notification check needs a phone |
 | 4 · Windows integration | Done |
 | 5 · Installer | Done — installed on this PC; clean-user test left |
+| 6 · Updates, tray, autostart (0.2.0) | Released (public repo, v0.2.0); first real self-update needs 0.2.1 |
 
 ## How to build, run and test
 
@@ -47,7 +63,8 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
 - Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~1.2 MB). `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
 - App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
-- On this PC: the installed release build, no accounts yet (the 3 fake test accounts were removed so the user can add real ones). The self-test needs 3 accounts — add test ones first when running it.
+- On this PC: installed 0.2.0 with the user's two real accounts. **Never run test builds on the real data folder** — debug builds must use `WACH_DATA_DIR` (release builds ignore it, so don't test release builds while the real copy holds logins). The self-test needs 3 accounts — add test ones first when running it.
+- Saved window position can be `-60000,-60000` after a hidden start; WACH opens maximised/on screen anyway (minor, worth a look).
 
 ## Code map
 
@@ -71,7 +88,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 
 ## Still to do / open
 
-- **Needs the user:** scan QR codes, then check (a) both stay logged in after restart, (b) a message to a parked account (not in a pane) shows a toast within 10 s and clicking it opens the right chat.
+- **Needs the user:** (a) both stay logged in after restart: checked on 0.2.0 (also after a forced close), but see the login incident above; (b) a message to a parked account (not in a pane) shows a toast within 10 s and clicking it opens the right chat.
 - Not tested yet: the offline page (needs the network cut), tray tooltip/dot and taskbar dot checked by eye only.
 - Installer: test on a clean Windows user; tick "delete app data" on uninstall once by hand (should remove `%LOCALAPPDATA%\app.wach.desktop`, checked by reading Tauri's NSIS script only).
 - `ui/selftest.js` ships inside the release build (harmless: the debug commands it needs don't exist there). Could be left out later.
