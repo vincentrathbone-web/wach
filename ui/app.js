@@ -527,7 +527,7 @@ async function main() {
     s.src = "selftest.js";
     s.onload = () =>
       window.WACH_SELFTEST({
-        S, L, invoke, sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        S, L, invoke, listen, sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         swapPanes, toggleSplit, showInFocused, onShortcut, settingsSheet, closeSheet, commit,
       }).catch((e) => invoke("debug_log", { line: "FAIL crashed: " + e }));
     document.head.append(s);

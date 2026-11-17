@@ -2,7 +2,7 @@
 
 Notes for whoever picks this up next (a person or a new Claude session). Short on purpose: the plan and progress table are in [PLAN.md](PLAN.md), the look in [DESIGN.md](DESIGN.md).
 
-Last updated: 2026-11-17 (after phases 1–2)
+Last updated: 2026-11-17 (after phases 3–4)
 
 ## Where we are
 
@@ -12,8 +12,8 @@ Last updated: 2026-11-17 (after phases 1–2)
 | 0 · Setup | Done |
 | 1 · Two accounts side by side | Done — 2 manual checks left (need a phone to scan QR codes) |
 | 2 · Shell & split view | Done |
-| 3 · Inside WhatsApp | Code written, being tested |
-| 4 · Windows integration | Code written, being tested |
+| 3 · Inside WhatsApp | Done — real-notification check needs a phone |
+| 4 · Windows integration | Done |
 | 5 · Installer | Not started |
 
 ## How to build, run and test
@@ -22,7 +22,7 @@ Last updated: 2026-11-17 (after phases 1–2)
 - Tauri CLI: `D:\Dev\toolshed\tauri-cli\node_modules\.bin\tauri.cmd`. NSIS: `D:\Dev\toolshed\nsis`.
 - Build: `cd src-tauri; cargo build` → `target\debug\wach.exe`.
 - Unit + token tests: `cd src-tauri; cargo test` (rules, config, shortcuts, toast text, and `tests/tokens.rs` which fails on raw colours/sizes outside `ui/tokens.css`).
-- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. Last run: **all 21 checks pass**.
+- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes). Last run: **all 30 checks pass**.
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
 - App data: `%LOCALAPPDATA%\WACH\` → `config.json`, `closed.json`, `accounts\<id>\` (one WebView2 folder per account), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
 - Test data currently on this PC: 3 fake accounts (Work/Personal/Family, ids `Test…`), not logged in.
@@ -42,11 +42,14 @@ Last updated: 2026-11-17 (after phases 1–2)
 - Single/Split, swap, Ctrl+Tab, Ctrl+1–9, divider ratio, sheets park the webviews, add/rename/remove account, input validation, layout saved.
 - Removed account's folder is deleted at the next start (`closed.json`).
 - Token rule enforced by a test (it caught the old placeholder stylesheet).
+- Unread from the page title → rail badge + status bar total; test toast shows; Ctrl+= / Ctrl+0 zoom per account and is saved.
+- Page crash → marked + reloaded; whole browser crash → webview rebuilt in the same pane, other pane untouched; 4th crash within a minute is not reloaded.
+- Close → hides to tray; starting WACH again brings the same copy back; with tray off, close quits and saves the window; a saved position off every screen is moved back on screen.
 
 ## Still to do / open
 
 - **Needs the user:** scan QR codes, then check (a) both stay logged in after restart, (b) a message to a parked account (not in a pane) shows a toast within 10 s and clicking it opens the right chat.
-- Phase 3/4 checks: toast, tray tooltip/icon, taskbar dot, crash reload, offline page, zoom, window position restore, close-to-tray.
+- Not tested yet: the offline page (needs the network cut), tray tooltip/dot and taskbar dot checked by eye only.
 - Phase 5: installer (NSIS, per user, Start-menu shortcut with AUMID).
 - Fable 5.2 review of PLAN.md (was blocked by usage credits).
 - Optional: shared WebView2 profiles (Option B) to cut memory — see Issues.
@@ -67,4 +70,5 @@ Last updated: 2026-11-17 (after phases 1–2)
 - Creating a webview inside a normal (sync) Tauri command deadlocks on Windows: it runs on the main thread and waits for itself. Create from a background thread.
 - Webviews may finish starting after the UI has laid out → Rust remembers the last pane rectangles and applies them when a webview appears.
 - `PrintWindow` screenshots do include WebView2 content; listing child windows (`WRY_WEBVIEW`) with their rectangles is a quick way to check placement.
+- Window position is saved only on exit (`ExitRequested`), so `Stop-Process` loses a move. To test it, turn tray off and send WM_CLOSE.
 - PowerShell `Set-Content` on Rust files can change line endings; prefer the editor tools for code edits.

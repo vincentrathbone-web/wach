@@ -184,6 +184,35 @@ fn debug_bounds(webview: Webview, app: AppHandle, state: State<App>) -> Result<H
         .collect())
 }
 
+/// Debug builds only: fake the events WhatsApp would cause, for the self-test.
+#[cfg(debug_assertions)]
+#[tauri::command]
+fn debug_simulate(webview: Webview, app: AppHandle, state: State<App>, kind: String, id: String, n: Option<u32>) -> Result<serde_json::Value, String> {
+    ui_only(&webview)?;
+    match kind.as_str() {
+        "unread" => set_unread(&app, &id, n.unwrap_or(0)),
+        "title" => set_unread(&app, &id, rules::unread_from_title(&format!("({}) WhatsApp", n.unwrap_or(0)))),
+        "toast" => {
+            let name = state.cfg.lock().unwrap().account(&id).map(|a| a.name.clone()).unwrap_or_default();
+            let (app2, id2) = (app.clone(), id.clone());
+            toast::show(&id, &format!("{name} · WACH self-test"), "This is a test notification. Click it to open the account.", "selftest", move || {
+                let app3 = app2.clone();
+                let _ = app2.run_on_main_thread(move || show_account(&app3, &id2));
+            });
+        }
+        "zoom-in" => on_shortcut(&app, Some(&id), Action::ZoomIn),
+        "zoom-reset" => on_shortcut(&app, Some(&id), Action::ZoomReset),
+        "crash" => on_account_crashed(&app, &id, false),
+        "crash-browser" => on_account_crashed(&app, &id, true),
+        "hide" => {
+            let _ = webview.window().close();
+        }
+        _ => return Err("unknown".into()),
+    }
+    let cfg = state.cfg.lock().unwrap();
+    Ok(serde_json::json!({ "zoom": cfg.account(&id).map(|a| a.zoom) }))
+}
+
 /// Debug builds only: print self-test lines to stderr.
 #[cfg(debug_assertions)]
 #[tauri::command]
@@ -454,7 +483,7 @@ macro_rules! commands {
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_window(app)));
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(commands!(debug_bounds, debug_log));
+    let builder = builder.invoke_handler(commands!(debug_bounds, debug_log, debug_simulate));
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(commands!());
     builder

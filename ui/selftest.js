@@ -89,5 +89,38 @@ window.WACH_SELFTEST = async function (api) {
   const st = await invoke("get_state");
   await check("layout saved in Rust", st.config.layout.left === L().left && st.config.layout.right === L().right);
 
+  // ---- Phase 3–4 (simulated events) ----
+  const sim = (kind, id, n) => invoke("debug_simulate", { kind, id, n });
+  await sim("title", A, 7); await sleep(300);
+  await check("unread from title reaches the rail", S.unread[A] === 7 && document.querySelector(".rail-acc .badge")?.textContent === "7");
+  await check("status bar shows total unread", document.getElementById("status-text").textContent.includes("7 unread"));
+  await sim("unread", B, 3); await sleep(300);
+  await check("second account adds to total", document.getElementById("status-text").textContent.includes("10 unread"));
+  await sim("unread", A, 0); await sim("unread", B, 0); await sleep(300);
+  await check("unread clears", !document.querySelector(".rail-acc .badge"));
+
+  try { await sim("toast", A); await check("toast shows without error", true); }
+  catch (e) { await check("toast shows without error", false, String(e)); }
+
+  let z = await sim("zoom-in", A);
+  await check("Ctrl+= zooms that account", Math.abs(z.zoom - 1.1) < 1e-9, String(z.zoom));
+  z = await sim("zoom-reset", A);
+  await check("Ctrl+0 resets zoom", z.zoom === 1);
+
+  const placedBefore = (await bounds())[L().left];
+  await sim("crash", L().left); await sleep(400);
+  await check("renderer crash marks the account and reloads", S.crashed[L().left] === true && (await bounds())[L().left]);
+  const victim = L().right;
+  await sim("crash-browser", victim);
+  let back = false;
+  for (let i = 0; i < 60 && !back; i++) { await sleep(250); const bb = await bounds(); back = !!bb[victim] && shown(bb, victim); }
+  await check("browser crash recreates the webview in its pane", back);
+  await check("left pane unaffected by right pane's crash", JSON.stringify((await bounds())[L().left]) === JSON.stringify(placedBefore));
+  await sim("crash", C); await sim("crash", C); await sim("crash", C);
+  let limited = false;
+  await api.listen("account-crashed", (p) => { if (p.id === C) limited = p.reloading === false; });
+  await sim("crash", C); await sleep(300);
+  await check("4th crash in a minute is not reloaded", limited);
+
   await log(`done: ${fails === 0 ? "ALL PASS" : fails + " FAILED"}`);
 };

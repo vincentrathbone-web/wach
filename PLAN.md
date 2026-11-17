@@ -11,8 +11,8 @@ Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · s
 | 0 · Setup | ✅ Done | Tauri 2.12, MSVC toolchain pinned |
 | 1 · Spike | ✅ Done (2 manual checks left) | Two accounts side by side, separate storage, resize follows. **Measured ~370 MB private per account** (7 WebView2 processes each) → over the 150 MB line; Option B (profiles) needs Tauri to expose `with_profile_name` (wry has it). Kept Option A for now. Manual: stay-logged-in after restart, notification from a parked account |
 | 2 · Shell & split view | ✅ Done | Tokens + token check test, title bar, rail, panes, divider, sheets, shortcuts, config, cleanup. UI self-test: all pass |
-| 3 · Inside WhatsApp | 🔶 Code written, testing | Native WebView2 events instead of a page script (see 4.4/4.5) |
-| 4 · Windows bits | 🔶 Code written, testing | |
+| 3 · Inside WhatsApp | ✅ Done (1 manual check left) | Native WebView2 events instead of a page script (see 4.4/4.5). Self-test (simulated events): unread from title → rail/status, toast, zoom keys, renderer crash reload, browser crash recreate, crash limit. Not auto-tested: offline page, real WhatsApp notification |
+| 4 · Windows bits | ✅ Done | Close-to-tray, second start focuses first copy, window position saved + off-screen position corrected (tested by script). Tray tooltip/icon dot + taskbar dot run in the self-test without error (looked at by eye only) |
 | 5 · Installer | ⏳ Not started | |
 
 **Decisions made while building**
