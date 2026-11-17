@@ -122,5 +122,34 @@ window.WACH_SELFTEST = async function (api) {
   await sim("crash", C); await sleep(300);
   await check("4th crash in a minute is not reloaded", limited);
 
+  // ---- Tray settings, autostart, updates ----
+  // The crash checks above leave a "stopped" message that would hide "muted".
+  for (const k of Object.keys(S.crashed)) delete S.crashed[k];
+  let s = await invoke("set_settings", { mute: "hour" }); await sleep(300);
+  const now = Date.now() / 1000;
+  await check("mute 1 hour sets about an hour", s.muted_until > now + 3500 && s.muted_until < now + 3700);
+  await check("status bar says muted", document.getElementById("status-text").textContent.includes("muted"));
+  s = await invoke("set_settings", { mute: "forever" });
+  await check("mute until turned on", s.muted_until >= Number.MAX_SAFE_INTEGER);
+  s = await invoke("set_settings", { mute: "off" }); await sleep(300);
+  await check("unmute", s.muted_until === 0 && !document.getElementById("status-text").textContent.includes("muted"));
+  try { await invoke("set_settings", { mute: "week" }); await check("bad mute choice rejected", false); }
+  catch { await check("bad mute choice rejected", true); }
+
+  const before = S.settings.autostart;
+  s = await invoke("set_settings", { autostart: true });
+  await check("autostart on writes the Run entry", s.autostart === true);
+  s = await invoke("set_settings", { autostart: false });
+  await check("autostart off removes it", s.autostart === false);
+  if (before) await invoke("set_settings", { autostart: true });
+
+  const u = await invoke("check_update");
+  await check("update check answers", ["up-to-date", "available", "error"].includes(u.state), JSON.stringify(u));
+  await sleep(200);
+  const chip = document.getElementById("update-chip");
+  await check("update chip only for a ready update", chip.hidden === (u.state !== "available"));
+
   await log(`done: ${fails === 0 ? "ALL PASS" : fails + " FAILED"}`);
+  // Leave Settings open so a screenshot can check the sheet by eye.
+  api.settingsSheet();
 };

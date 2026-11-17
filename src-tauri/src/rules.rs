@@ -61,7 +61,7 @@ pub fn valid_id(id: &str) -> bool {
 }
 
 /// The 16-byte key Tauri's `data_store_identifier` takes: the id's bytes,
-/// zero-padded. Our patched tauri-runtime-wry uses its hex as the WebView2
+/// zero-padded. Our patched tauri-runtime-wry turns it into the WebView2
 /// profile name (see `profile_name`).
 pub fn profile_key(id: &str) -> Option<[u8; 16]> {
     if !valid_id(id) {
@@ -72,10 +72,50 @@ pub fn profile_key(id: &str) -> Option<[u8; 16]> {
     Some(key)
 }
 
-/// The WebView2 profile name the patch makes from `profile_key` (lowercase
-/// hex, so ids that differ only in case never share a folder).
+/// The WebView2 profile name the patch makes from `profile_key`: lowercase
+/// base32 of the id (20 chars). Lowercase so ids that differ only in case
+/// never share a folder; short because Chromium's cache paths come close to
+/// Windows' 260-character limit. Must match the patch exactly.
 pub fn profile_name(id: &str) -> Option<String> {
+    profile_key(id)?;
+    Some(base32(id.as_bytes()))
+}
+
+/// RFC 4648 base32, lowercase, no padding.
+fn base32(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+    let (mut name, mut acc, mut bits) = (String::new(), 0u32, 0u32);
+    for &b in bytes {
+        acc = (acc << 8) | u32::from(b);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            name.push(ALPHABET[((acc >> bits) & 31) as usize] as char);
+        }
+    }
+    if bits > 0 {
+        name.push(ALPHABET[((acc << (5 - bits)) & 31) as usize] as char);
+    }
+    name
+}
+
+/// The hex profile name used before 0.2 (for moving old profile folders).
+pub fn old_profile_name(id: &str) -> Option<String> {
     profile_key(id).map(|k| k.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// "Mute all" choices from the tray and Settings → the `muted_until` value.
+pub fn mute_until(choice: &str, now: u64) -> Option<u64> {
+    match choice {
+        "off" => Some(0),
+        "hour" => Some(now + 3600),
+        "forever" => Some(u64::MAX),
+        _ => None,
+    }
+}
+
+pub fn is_muted(muted_until: u64, now: u64) -> bool {
+    muted_until > now
 }
 
 pub fn new_id() -> String {
@@ -173,6 +213,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn muting() {
+        let now = 1_000_000;
+        assert!(!is_muted(0, now));
+        assert!(is_muted(mute_until("hour", now).unwrap(), now + 3599));
+        assert!(!is_muted(mute_until("hour", now).unwrap(), now + 3600));
+        assert!(is_muted(mute_until("forever", now).unwrap(), u64::MAX - 1));
+        assert_eq!(mute_until("off", now), Some(0));
+        assert_eq!(mute_until("bogus", now), None);
+    }
+
+    #[test]
     fn profile_keys() {
         let k = profile_key("Ab3_-xyz0123").unwrap();
         assert_eq!(&k[..12], b"Ab3_-xyz0123");
@@ -180,7 +231,12 @@ mod tests {
         assert!(profile_key("../../evil00").is_none());
         assert!(profile_key("short").is_none());
         assert_ne!(profile_name("abcdefghijkl"), profile_name("ABCDEFGHIJKL"));
-        assert_eq!(profile_name("AAAAAAAAAAAA").unwrap(), format!("{}{}", "41".repeat(12), "00".repeat(4)));
+        // RFC 4648 test vectors (lowercase, unpadded).
+        assert_eq!(base32(b"f"), "my");
+        assert_eq!(base32(b"foob"), "mzxw6yq");
+        assert_eq!(base32(b"foobar"), "mzxw6ytboi");
+        assert_eq!(profile_name("Ab3_-xyz0123").unwrap().len(), 20);
+        assert_eq!(old_profile_name("AAAAAAAAAAAA").unwrap(), format!("{}{}", "41".repeat(12), "00".repeat(4)));
     }
 
     fn u(s: &str) -> Url {

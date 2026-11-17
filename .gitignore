@@ -15,3 +15,8 @@ _wa-analysis/
 *.dll
 *.exe
 !/src-tauri/icons/**
+
+# Release output and signing keys (keys live in %USERPROFILE%\.tauri, never here)
+/release/
+*.key
+*.key.pub

@@ -14,6 +14,7 @@ Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · s
 | 3 · Inside WhatsApp | ✅ Done (1 manual check left) | Native WebView2 events instead of a page script (see 4.4/4.5). Self-test (simulated events): unread from title → rail/status, toast, zoom keys, renderer crash reload, browser crash recreate, crash limit. Not auto-tested: offline page, real WhatsApp notification |
 | 4 · Windows bits | ✅ Done | Close-to-tray, second start focuses first copy, window position saved + off-screen position corrected (tested by script). Tray tooltip/icon dot + taskbar dot run in the self-test without error (looked at by eye only) |
 | 5 · Installer | ✅ Done (clean-user test left) | `tauri build` → 1.23 MB per-user NSIS setup. Tested: silent install, Start-menu shortcut carries AUMID `app.wach.desktop`, installed app starts and shows accounts, silent uninstall removes program + shortcut + entry and keeps data, reinstall. Data moved to `%LOCALAPPDATA%\app.wach.desktop` so it never mixes with the install folder |
+| 6 · Updates, tray, autostart (0.2.0) | 🔶 Built and tested locally; GitHub repo + first release wait for the user's OK | Signed in-app updates from GitHub Releases (ask, then install), tray menu (accounts with unread, mute all, start with Windows, check for updates), start with Windows hidden in the tray, `scripts\release.ps1`. Also: shorter WebView2 paths (`wv\`, base32 profile names) after hitting the 260-char limit. Self-test 40/40 |
 
 **Decisions made while building**
 - **No page script.** Unread comes from Tauri's `on_document_title_changed`; notifications come from WebView2's native `NotificationReceived` event. WhatsApp's page gets no injected code and no IPC capability at all.
@@ -57,7 +58,7 @@ Main window (Tauri, no system frame)
      ├── 0, 1 or 2 placed in the pane rectangles (Single / Split)
      ├── the rest kept alive but out of view (see below)
      ├── url: https://web.whatsapp.com/
-     ├── own data folder: %LOCALAPPDATA%\app.wach.desktop\accounts\<id>\
+     ├── own WebView2 profile: %LOCALAPPDATA%\app.wach.desktop\wv\EBWebView\WV2Profile_<base32 id>\
      └── initialization script: wach-page.js
 ```
 
@@ -108,7 +109,7 @@ Not needed: native WebView2 events cover unread and notifications (see 4.4/4.5).
 
 `%LOCALAPPDATA%\app.wach.desktop\` (the program itself installs to `%LOCALAPPDATA%\WACH\`)
 - `config.json` — accounts `[ {id, name, color, notifications, media} ]`, layout `{mode: "single"|"split", left, right, focused, ratio}`, window state, settings (close-to-tray, theme, glow size). Written atomically (temp file + rename).
-- `accounts\<id>\` — WebView2 data per account.
+- `wv\` — one shared WebView2 folder; each account is a profile in it (Option B, see HANDOVER.md).
 - `closed.json` — accounts waiting for deletion.
 
 Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.

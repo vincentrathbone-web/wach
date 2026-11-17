@@ -2,11 +2,19 @@
 
 Notes for whoever picks this up next (a person or a new Claude session). Short on purpose: the plan and progress table are in [PLAN.md](PLAN.md), the look in [DESIGN.md](DESIGN.md).
 
-Last updated: 2026-11-17 (after phase 5)
+Last updated: 2026-11-18 (0.2.0: updates, tray menu, start with Windows)
 
-## Branch `option-b-profiles` (not merged)
+## 0.2.0 — what's new
 
-All accounts share one WebView2 data folder (`profiles\`) = one browser process tree; each account is a WebView2 **profile** (`profiles\EBWebView\WV2Profile_<hex of id>`). Needs our vendored `src-tauri/patches/tauri-runtime-wry` (search "WACH patch": `data_store_identifier` → profile name, lowercase hex because WebView2 lowercases profile folder names).
+- **Start with Windows**: `HKCU\…\Run` value `WACH` = `"<exe>" --hidden` (no plugin). `--hidden` keeps the window in the tray; accounts still load. Off by default; Settings + tray toggle. Turning it off only removes an entry that points at *this* exe.
+- **Tray menu** (rebuilt on every unread/setting change): accounts with unread → click opens; Mute (1 hour / until on / unmute, stored as `settings.muted_until`); Start with Windows; Check for updates / Install update; Show; Quit.
+- **Updates**: `tauri-plugin-updater` from Rust only (no JS permission). Endpoint `https://github.com/vincentrathbone-web/wach/releases/latest/download/latest.json`; public key in `tauri.conf.json`; private key `%USERPROFILE%\.tauri\wach-updater.key` (no password, **not in the repo — back it up; lose it and installed copies can't update**). Checks 30 s after start and every 6 h (release builds only); status bar chip "Update x ready · Restart"; installs only on click (NSIS passive, WACH restarts).
+- **Releases**: `scripts\release.ps1 -Version x.y.z -Notes "…"` builds + signs into `release\x.y.z\` (installer, .sig, latest.json). Add `-Publish` to commit, tag, push and create the GitHub release.
+- **Shorter data paths**: `profiles\` → `wv\`, profile names hex (32) → base32 (20). Chromium's cache paths reached 249 of Windows' 260 chars here; past 260 WhatsApp shows "A database error occurred on your browser". Old folders are moved on start (`Store::migrate_profiles`, retries ~10 s while the old WebView2 lets go); Chromium then re-creates an empty stub of the "last used" old profile, which is deleted on the next start only if it is newer than the moved one.
+
+## Option B (merged in 0.1.x)
+
+All accounts share one WebView2 data folder (`wv\`) = one browser process tree; each account is a WebView2 **profile** (`wv\EBWebView\WV2Profile_<base32 of id>`). Needs our vendored `src-tauri/patches/tauri-runtime-wry` (search "WACH patch": `data_store_identifier` → profile name, lowercase because WebView2 lowercases profile folder names).
 
 Measured, 3 test accounts on the QR page + WACH's UI, ~40 s after start:
 
@@ -35,10 +43,10 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - Tauri CLI: `D:\Dev\toolshed\tauri-cli\node_modules\.bin\tauri.cmd`. NSIS: `D:\Dev\toolshed\nsis`.
 - Build: `cd src-tauri; cargo build` → `target\debug\wach.exe`.
 - Unit + token tests: `cd src-tauri; cargo test` (rules, config, shortcuts, toast text, and `tests/tokens.rs` which fails on raw colours/sizes outside `ui/tokens.css`).
-- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes). Last run: **all 30 checks pass**.
+- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 40 checks pass**. Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
-- Installer: kill `wach.exe`, add `D:\Dev\toolshed\nsis` to PATH, run `tauri.cmd build` from `src-tauri` → `target\release\bundle\nsis\WACH_0.1.0_x64-setup.exe` (~1.2 MB, ~5 min). `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
-- App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `accounts\<id>\` (one WebView2 folder per account), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
+- Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~1.2 MB). `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
+- App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
 - On this PC: the installed release build, no accounts yet (the 3 fake test accounts were removed so the user can add real ones). The self-test needs 3 accounts — add test ones first when running it.
 
 ## Code map
@@ -90,5 +98,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - `PrintWindow` screenshots do include WebView2 content; listing child windows (`WRY_WEBVIEW`) with their rectangles is a quick way to check placement.
 - Tauri's NSIS installs to `%LOCALAPPDATA%\<productName>` but its "delete app data" box removes `%LOCALAPPDATA%\<identifier>`. Keep app data under the identifier (`app_local_data_dir()`), never under the product name.
 - Window position is saved only on exit (`ExitRequested`), so `Stop-Process` loses a move. To test it, turn tray off and send WM_CLOSE.
+- **Rust temporaries in a struct literal live until the whole literal is built.** `StateDto { config: cfg.lock().unwrap().clone(), settings: settings_dto() /* locks cfg again */ }` deadlocked the main thread — and only showed up as a freeze while an account webview was starting (the UI's `get_state` runs re-entrantly inside WebView2's message pump). Take locks in their own `let` first.
+- Synthetic mouse clicks (`mouse_event`) don't reach WACH's window reliably; drive the UI through the self-test API instead.
 - `element.replaceChildren(x ? node : null)` prints the word "null" — filter children first (our `h()` helper already does).
 - PowerShell `Set-Content` on Rust files can change line endings; prefer the editor tools for code edits.

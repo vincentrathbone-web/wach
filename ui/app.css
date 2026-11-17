@@ -268,6 +268,20 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   overflow: hidden;
 }
 .status { display: inline-flex; align-items: center; gap: var(--space-2); }
+.update-chip {
+  height: calc(var(--size-statusbar) - var(--space-2));
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  border: var(--border-width) solid transparent;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  box-shadow: var(--glow-button);
+}
+.update-chip.quiet { background: transparent; border-color: var(--border); color: var(--text-muted); font-weight: var(--weight-medium); box-shadow: none; }
+.update-chip[hidden] { display: none; }
+.segmented.wide { align-self: flex-start; }
 kbd { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--kbd); }
 
 /* ---- Buttons & inputs (sheets) ---- */

@@ -240,7 +240,32 @@ function renderStatus() {
     ? `${crashed.name} stopped — reloading`
     : n === 0
       ? "No accounts yet"
-      : `${n} account${n === 1 ? "" : "s"}${total ? ` · ${total} unread` : ""} · each in its own storage`;
+      : `${n} account${n === 1 ? "" : "s"}${total ? ` · ${total} unread` : ""}${muted() ? " · notifications muted" : " · each in its own storage"}`;
+  renderUpdate();
+}
+
+const muted = () => (S.settings?.muted_until || 0) > Date.now() / 1000;
+
+// Status-bar chip: only shows when there is something to say about updates.
+function renderUpdate() {
+  const chip = $("#update-chip");
+  const u = S.update || { state: "idle" };
+  const text = {
+    available: `Update ${u.version} ready · Restart`,
+    installing: "Installing update…",
+    checking: "Checking for updates…",
+  }[u.state];
+  chip.hidden = !text;
+  chip.textContent = text || "";
+  chip.classList.toggle("quiet", u.state !== "available");
+  chip.disabled = u.state !== "available";
+}
+
+async function installUpdate() {
+  S.update = { state: "installing" };
+  renderUpdate();
+  try { await invoke("install_update"); }
+  catch (e) { S.update = { state: "error", message: String(e) }; renderUpdate(); }
 }
 
 // ------------------------------------------------------------ sheets (modals)
@@ -407,6 +432,47 @@ function settingsSheet() {
   const tray = h("input", { type: "checkbox", id: "set-tray", checked: st.close_to_tray });
   const glow = h("input", { type: "range", id: "set-glow", min: "0", max: "48", step: "2", value: String(st.glow) });
   tray.addEventListener("change", () => { st.close_to_tray = tray.checked; invoke("set_settings", { closeToTray: tray.checked }); });
+
+  const err = h("p", { class: "error" });
+  const auto = h("input", { type: "checkbox", id: "set-auto", checked: !!S.settings?.autostart });
+  auto.addEventListener("change", async () => {
+    try { S.settings = await invoke("set_settings", { autostart: auto.checked }); err.textContent = ""; }
+    catch (e) { err.textContent = String(e); }
+    auto.checked = !!S.settings?.autostart;
+  });
+
+  const mu = S.settings?.muted_until || 0;
+  const current = !muted() ? "off" : mu >= Number.MAX_SAFE_INTEGER ? "forever" : "hour";
+  const muteSeg = h("div", { class: "segmented wide", role: "group", "aria-label": "Mute all notifications" },
+    [["off", "On"], ["hour", "Mute 1 hour"], ["forever", "Mute until I turn them on"]].map(([v, t]) =>
+      h("button", {
+        type: "button",
+        "aria-pressed": String(v === current),
+        text: t,
+        onclick: async (e) => {
+          S.settings = await invoke("set_settings", { mute: v });
+          $$("button", muteSeg).forEach((b) => b.setAttribute("aria-pressed", "false"));
+          e.currentTarget.setAttribute("aria-pressed", "true");
+          renderStatus();
+        },
+      })));
+
+  const updText = h("span", { class: "note", text: updateLine() });
+  const updBtn = h("button", {
+    type: "button",
+    class: "btn",
+    text: S.update?.state === "available" ? `Install ${S.update.version}` : "Check for updates",
+    onclick: async () => {
+      if (S.update?.state === "available") return installUpdate();
+      updBtn.disabled = true;
+      updText.textContent = "Checking…";
+      try { S.update = await invoke("check_update"); } catch (e) { S.update = { state: "error", message: String(e) }; }
+      updText.textContent = updateLine();
+      updBtn.disabled = false;
+      updBtn.textContent = S.update?.state === "available" ? `Install ${S.update.version}` : "Check for updates";
+      renderUpdate();
+    },
+  });
   glow.addEventListener("input", () => { st.glow = Number(glow.value); render(); });
   glow.addEventListener("change", () => invoke("set_settings", { glow: st.glow }));
   const keys = [
@@ -415,13 +481,29 @@ function settingsSheet() {
   ];
   openSheet("Settings", [
     h("label", { class: "toggle", for: "set-tray" }, h("span", { text: "Closing the window keeps WACH in the tray" }), tray),
+    h("label", { class: "toggle", for: "set-auto" }, h("span", { text: "Start with Windows (in the tray, accounts load in the background)" }), auto),
+    h("div", { class: "field" }, h("span", { class: "label", text: "Notifications from all accounts" }), muteSeg),
     h("div", { class: "field" }, h("label", { for: "set-glow", text: "Glow" }), glow),
     h("div", { class: "list" }, keys.map(([k, t]) => h("div", { class: "toggle" }, h("span", { text: t }), h("kbd", { text: k })))),
-    h("p", { class: "note", text: "WACH 0.1 · each account runs in its own WebView2 storage folder under %LOCALAPPDATA%\\WACH. No telemetry." }),
+    h("div", { class: "toggle" }, updText, updBtn),
+    err,
+    h("p", { class: "note", text: `WACH ${S.version || ""} · each account is a separate WebView2 profile under %LOCALAPPDATA%\\app.wach.desktop. Updates come signed from GitHub. No telemetry.` }),
     h("div", { class: "row end" },
       h("button", { type: "button", class: "btn danger", text: "Quit WACH", onclick: () => invoke("window_cmd", { action: "quit" }) }),
       h("button", { type: "button", class: "btn primary", text: "Done", onclick: closeSheet })),
   ]);
+}
+
+function updateLine() {
+  const u = S.update || { state: "idle" };
+  switch (u.state) {
+    case "available": return `Version ${u.version} is ready to install.`;
+    case "up-to-date": return `You have the latest version (${S.version}).`;
+    case "checking": return "Checking…";
+    case "installing": return "Installing…";
+    case "error": return u.message;
+    default: return `Version ${S.version}`;
+  }
 }
 
 // ------------------------------------------------------------ wiring
@@ -499,6 +581,9 @@ async function main() {
   S.cfg = st.config;
   S.unread = st.unread || {};
   S.maximized = st.maximized;
+  S.settings = st.settings;
+  S.version = st.version;
+  S.update = st.update;
   // First run with accounts but no layout yet: fill the panes in order.
   if (!L().left && accounts()[0]) L().left = accounts()[0].id;
   if (!L().right && accounts()[1] && accounts()[1].id !== L().left) L().right = accounts()[1].id;
@@ -520,6 +605,9 @@ async function main() {
     setTimeout(() => { delete S.crashed[id]; render(); }, reloading ? 6000 : 30000);
   });
   await listen("relayout", () => place());
+  await listen("settings", (s) => { S.settings = s; renderStatus(); });
+  await listen("update", (u) => { S.update = u; renderUpdate(); });
+  $("#update-chip").onclick = installUpdate;
   await listen("window-state", ({ maximized }) => {
     if (S.maximized !== maximized) { S.maximized = maximized; render(); }
   });

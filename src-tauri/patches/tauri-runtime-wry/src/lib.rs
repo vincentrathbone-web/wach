@@ -5000,10 +5000,25 @@ You may have it installed on another user account, but it is not available for t
     // WACH patch: on Windows, map `data_store_identifier` to a WebView2
     // profile name, so webviews sharing one data directory (one browser
     // process tree) still get fully separate cookies and storage.
-    // The name is the 16 bytes as lowercase hex: WebView2 lowercases profile
-    // folder names, so mixed-case names could collide.
+    // The name is lowercase base32 (RFC 4648 alphabet, no padding) of the
+    // bytes without trailing zeros: lowercase because WebView2 lowercases
+    // profile folder names (mixed case could collide), base32 to keep paths
+    // short (Chromium's cache paths get close to Windows' 260-char limit).
     if let Some(id) = &webview_attributes.data_store_identifier {
-      let name: String = id.iter().map(|b| format!("{b:02x}")).collect();
+      const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
+      let end = id.iter().rposition(|b| *b != 0).map_or(0, |i| i + 1);
+      let (mut name, mut acc, mut bits) = (String::new(), 0u32, 0u32);
+      for b in &id[..end] {
+        acc = (acc << 8) | u32::from(*b);
+        bits += 8;
+        while bits >= 5 {
+          bits -= 5;
+          name.push(ALPHABET[((acc >> bits) & 31) as usize] as char);
+        }
+      }
+      if bits > 0 {
+        name.push(ALPHABET[((acc << (5 - bits)) & 31) as usize] as char);
+      }
       webview_builder = webview_builder.with_profile_name(name);
     }
 

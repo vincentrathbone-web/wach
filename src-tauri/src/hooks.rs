@@ -182,8 +182,9 @@ fn on_notification(app: &AppHandle, id: &str, n: ICoreWebView2Notification, titl
     let state = app.state::<App>();
     let (name, enabled) = {
         let cfg = state.cfg.lock().unwrap();
+        let muted = crate::rules::is_muted(cfg.settings.muted_until, crate::now_secs());
         match cfg.account(id) {
-            Some(a) => (a.name.clone(), a.notifications),
+            Some(a) => (a.name.clone(), a.notifications && !muted),
             None => return,
         }
     };

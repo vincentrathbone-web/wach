@@ -85,11 +85,14 @@ pub struct Settings {
     /// Glow strength in px, 0–48.
     pub glow: u32,
     pub theme: Theme,
+    /// All notifications muted until this Unix time (s). 0 = not muted,
+    /// `u64::MAX` = until turned back on. See `rules::is_muted`.
+    pub muted_until: u64,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { close_to_tray: true, glow: 24, theme: Theme::default() }
+        Self { close_to_tray: true, glow: 24, theme: Theme::default(), muted_until: 0 }
     }
 }
 
@@ -178,14 +181,44 @@ impl Store {
 
     /// One WebView2 data folder shared by all accounts (one browser process
     /// tree); each account is a WebView2 profile inside it.
+    /// Kept short ("wv"): Chromium's cache paths inside it get close to
+    /// Windows' 260-character limit, and WhatsApp's database fails past it.
     pub fn shared_dir(&self) -> PathBuf {
-        self.root.join("profiles")
+        self.root.join("wv")
     }
 
     /// Where WebView2 keeps one account's profile inside the shared folder.
     pub fn profile_dir(&self, id: &str) -> Option<PathBuf> {
         // WebView2 stores a named profile in EBWebView\WV2Profile_<name>.
         rules::profile_name(id).map(|name| self.shared_dir().join("EBWebView").join(format!("WV2Profile_{name}")))
+    }
+
+    /// 0.1 → 0.2: `profiles\` became `wv\` and profile names went from hex to
+    /// base32. Move the folders (logins included) before any webview starts.
+    /// Never overwrites: if the new place exists, the old one is left alone.
+    pub fn migrate_profiles(&self, cfg: &Config) {
+        let old_root = self.root.join("profiles");
+        let new_root = self.shared_dir();
+        if old_root.is_dir() && !new_root.exists() && !rename_patiently(&old_root, &new_root) {
+            eprintln!("[wach] could not move {}", old_root.display());
+            return;
+        }
+        let base = new_root.join("EBWebView");
+        for a in &cfg.accounts {
+            let (Some(old), Some(new)) = (rules::old_profile_name(&a.id), rules::profile_name(&a.id)) else { continue };
+            let (from, to) = (base.join(format!("WV2Profile_{old}")), base.join(format!("WV2Profile_{new}")));
+            if from.is_dir() && !to.exists() {
+                if !rename_patiently(&from, &to) {
+                    eprintln!("[wach] could not move {}", from.display());
+                }
+            } else if from.is_dir() && created(&from) > created(&to) {
+                // Chromium re-creates the "last used" profile from its Local
+                // State on the first start after the move: an empty stub that
+                // is newer than the moved one. (If instead the move had failed,
+                // the old folder holds the login and is the older one: kept.)
+                let _ = fs::remove_dir_all(&from);
+            }
+        }
     }
 
     pub fn load(&self) -> Config {
@@ -224,7 +257,8 @@ impl Store {
         let plan = cleanup_plan(&closed, cfg);
         let mut left = Vec::new();
         for id in &plan.delete {
-            let dirs = [self.account_dir(id), self.profile_dir(id)];
+            let old_hex = rules::old_profile_name(id).map(|n| self.root.join("profiles").join("EBWebView").join(format!("WV2Profile_{n}")));
+            let dirs = [self.account_dir(id), self.profile_dir(id), old_hex];
             let failed = dirs.into_iter().flatten().any(|dir| dir.exists() && fs::remove_dir_all(&dir).is_err());
             if failed {
                 left.push(id.clone());
@@ -234,6 +268,22 @@ impl Store {
         let _ = self.save_closed(&left);
         left
     }
+}
+
+fn created(p: &Path) -> Option<std::time::SystemTime> {
+    fs::metadata(p).and_then(|m| m.created()).ok()
+}
+
+/// A WebView2 that just quit (e.g. the old version during an update) can hold
+/// its files for a few seconds; try for up to ~10 s before giving up.
+fn rename_patiently(from: &Path, to: &Path) -> bool {
+    for _ in 0..40 {
+        if fs::rename(from, to).is_ok() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(250));
+    }
+    false
 }
 
 #[derive(Debug, PartialEq)]
@@ -323,6 +373,25 @@ mod tests {
         assert_eq!(store.load(), Config::default());
         store.save_closed(&["AAAAAAAAAAAA".into(), "../x".into()]).unwrap();
         assert_eq!(store.load_closed(), vec!["AAAAAAAAAAAA".to_string()]);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn profiles_move_to_short_names() {
+        let dir = std::env::temp_dir().join(format!("wach-test-{}", rules::new_id()));
+        let store = Store::new(dir.clone());
+        let mut c = Config::default();
+        c.accounts.push(acc("AAAAAAAAAAAA"));
+        let old = dir.join("profiles").join("EBWebView").join(format!("WV2Profile_{}", rules::old_profile_name("AAAAAAAAAAAA").unwrap()));
+        fs::create_dir_all(&old).unwrap();
+        fs::write(old.join("login"), b"kept").unwrap();
+        store.migrate_profiles(&c);
+        let new = store.profile_dir("AAAAAAAAAAAA").unwrap();
+        assert_eq!(fs::read(new.join("login")).unwrap(), b"kept");
+        assert!(!dir.join("profiles").exists());
+        // Running again changes nothing.
+        store.migrate_profiles(&c);
+        assert!(new.join("login").exists());
         fs::remove_dir_all(dir).unwrap();
     }
 }

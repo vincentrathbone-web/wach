@@ -11,6 +11,7 @@ mod shortcuts;
 #[cfg(windows)]
 mod toast;
 mod tray;
+mod update;
 
 use std::{
     collections::HashMap,
@@ -50,6 +51,56 @@ impl App {
             eprintln!("[wach] saving config failed: {e}");
         }
     }
+}
+
+pub(crate) fn now_secs() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+#[derive(Serialize, Clone)]
+struct SettingsDto {
+    autostart: bool,
+    muted_until: u64,
+}
+
+fn settings_dto(app: &AppHandle) -> SettingsDto {
+    SettingsDto {
+        autostart: platform::autostart_enabled(),
+        muted_until: app.state::<App>().cfg.lock().unwrap().settings.muted_until,
+    }
+}
+
+/// Tell the UI and the tray that a setting changed elsewhere.
+fn settings_changed(app: &AppHandle) {
+    let _ = app.emit_to("ui", "settings", settings_dto(app));
+    tray::update(app);
+}
+
+/// "off" | "hour" | "forever" (tray menu and Settings).
+pub(crate) fn set_mute(app: &AppHandle, choice: &str) {
+    let now = now_secs();
+    let Some(until) = rules::mute_until(choice, now) else { return };
+    let state = app.state::<App>();
+    state.cfg.lock().unwrap().settings.muted_until = until;
+    state.save();
+    settings_changed(app);
+    if until != 0 && until != u64::MAX {
+        // Refresh tray and UI when the hour is over.
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(until - now + 1));
+            if app.state::<App>().cfg.lock().unwrap().settings.muted_until == until {
+                let a2 = app.clone();
+                let _ = app.run_on_main_thread(move || settings_changed(&a2));
+            }
+        });
+    }
+}
+
+pub(crate) fn set_autostart(app: &AppHandle, on: bool) -> Result<(), String> {
+    let r = platform::set_autostart(on);
+    settings_changed(app);
+    r
 }
 
 // ---------------------------------------------------------------- events from webviews
@@ -110,7 +161,7 @@ fn zoom(app: &AppHandle, id: &str, action: Action) {
 }
 
 pub(crate) fn on_account_crashed(app: &AppHandle, id: &str, browser_gone: bool) {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let now = now_secs();
     let allowed = {
         let state = app.state::<App>();
         let mut map = state.reloads.lock().unwrap();
@@ -164,6 +215,9 @@ struct StateDto {
     config: Config,
     unread: HashMap<String, u32>,
     maximized: bool,
+    settings: SettingsDto,
+    version: String,
+    update: update::Status,
     /// Debug builds only: run ui/selftest.js (WACH_SELFTEST=1).
     selftest: bool,
 }
@@ -238,13 +292,20 @@ fn debug_log(webview: Webview, line: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_state(webview: Webview, state: State<App>) -> Result<StateDto, String> {
+fn get_state(webview: Webview, app: AppHandle, state: State<App>, updates: State<update::Updates>) -> Result<StateDto, String> {
     ui_only(&webview)?;
     let maximized = webview.window().is_maximized().unwrap_or(false);
+    // Before the struct below: a lock taken inside a struct literal is held
+    // until the whole literal is built, and settings_dto locks cfg too.
+    let settings = settings_dto(&app);
+    let config = state.cfg.lock().unwrap().clone();
     Ok(StateDto {
-        config: state.cfg.lock().unwrap().clone(),
+        config,
         unread: state.unread.lock().unwrap().clone(),
         maximized,
+        settings,
+        version: app.package_info().version.to_string(),
+        update: updates.status.lock().unwrap().clone(),
         selftest: cfg!(debug_assertions) && std::env::var("WACH_SELFTEST").is_ok_and(|v| v == "1"),
     })
 }
@@ -408,7 +469,16 @@ fn reload_account(webview: Webview, app: AppHandle, id: String) -> Result<(), St
 }
 
 #[tauri::command]
-fn set_settings(webview: Webview, state: State<App>, close_to_tray: Option<bool>, glow: Option<u32>) -> Result<(), String> {
+#[allow(clippy::too_many_arguments)]
+fn set_settings(
+    webview: Webview,
+    app: AppHandle,
+    state: State<App>,
+    close_to_tray: Option<bool>,
+    glow: Option<u32>,
+    autostart: Option<bool>,
+    mute: Option<String>,
+) -> Result<SettingsDto, String> {
     ui_only(&webview)?;
     {
         let mut cfg = state.cfg.lock().unwrap();
@@ -420,7 +490,29 @@ fn set_settings(webview: Webview, state: State<App>, close_to_tray: Option<bool>
         }
     }
     state.save();
-    Ok(())
+    if let Some(choice) = mute {
+        if rules::mute_until(&choice, 0).is_none() {
+            return Err("Unknown mute choice.".into());
+        }
+        set_mute(&app, &choice);
+    }
+    if let Some(on) = autostart {
+        set_autostart(&app, on)?;
+    }
+    Ok(settings_dto(&app))
+}
+
+#[tauri::command]
+async fn check_update(webview: Webview, app: AppHandle) -> Result<update::Status, String> {
+    ui_only(&webview)?;
+    update::check(&app, true).await;
+    Ok(app.state::<update::Updates>().status.lock().unwrap().clone())
+}
+
+#[tauri::command]
+async fn install_update(webview: Webview, app: AppHandle) -> Result<(), String> {
+    ui_only(&webview)?;
+    update::install(&app).await
 }
 
 #[tauri::command]
@@ -488,7 +580,8 @@ macro_rules! commands {
     ($($extra:ident),*) => {
         tauri::generate_handler![
             get_state, add_account, update_account, remove_account, move_account, set_layout,
-            place_panes, focus_account, reload_account, set_settings, window_cmd, window_resize
+            place_panes, focus_account, reload_account, set_settings, window_cmd, window_resize,
+            check_update, install_update
             $(, $extra)*
         ]
     };
@@ -496,7 +589,14 @@ macro_rules! commands {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_window(app)));
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // A sign-in start (--hidden) must not pop up a window that is already running.
+            if !args.iter().any(|a| a == platform::HIDDEN_FLAG) {
+                show_window(app);
+            }
+        }))
+        .plugin(tauri_plugin_updater::Builder::new().build());
     #[cfg(debug_assertions)]
     let builder = builder.invoke_handler(commands!(debug_bounds, debug_log, debug_simulate));
     #[cfg(not(debug_assertions))]
@@ -519,6 +619,7 @@ pub fn run() {
             let store = Store::new(root.clone());
             let cfg = store.load();
             store.cleanup_closed(&cfg);
+            store.migrate_profiles(&cfg);
 
             #[cfg(windows)]
             {
@@ -538,6 +639,7 @@ pub fn run() {
                 placed: Mutex::new(Vec::new()),
                 quitting: AtomicBool::new(false),
             });
+            app.manage(update::Updates::default());
 
             let window = WindowBuilder::new(app, "main")
                 .title("WACH")
@@ -612,7 +714,13 @@ pub fn run() {
                 _ => {}
             });
 
-            window.show()?;
+            update::start(app.handle());
+
+            // Started by Windows at sign-in: stay in the tray. The accounts
+            // still load, so notifications arrive.
+            if !std::env::args().any(|a| a == platform::HIDDEN_FLAG) {
+                window.show()?;
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
