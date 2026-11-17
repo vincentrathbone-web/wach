@@ -184,6 +184,21 @@ fn debug_bounds(webview: Webview, app: AppHandle, state: State<App>) -> Result<H
         .collect())
 }
 
+/// Builds before 0.1 kept data in %LOCALAPPDATA%\WACH, which is also where the
+/// installer puts the program. Move it once; never overwrite newer data.
+fn move_old_data(old: &std::path::Path, new: &std::path::Path) {
+    if !old.join("config.json").is_file() || new.join("config.json").exists() {
+        return;
+    }
+    let _ = std::fs::create_dir_all(new);
+    for name in ["config.json", "closed.json", "accounts"] {
+        let (from, to) = (old.join(name), new.join(name));
+        if from.exists() && !to.exists() {
+            let _ = std::fs::rename(&from, &to);
+        }
+    }
+}
+
 /// Debug builds only: fake the events WhatsApp would cause, for the self-test.
 #[cfg(debug_assertions)]
 #[tauri::command]
@@ -488,7 +503,11 @@ pub fn run() {
     let builder = builder.invoke_handler(commands!());
     builder
         .setup(|app| {
-            let root = app.path().local_data_dir()?.join("WACH");
+            // %LOCALAPPDATA%\app.wach.desktop — kept apart from the install
+            // folder (%LOCALAPPDATA%\WACH), and the folder the uninstaller's
+            // "delete app data" box removes.
+            let root = app.path().app_local_data_dir()?;
+            move_old_data(&app.path().local_data_dir()?.join("WACH"), &root);
             std::fs::create_dir_all(root.join("accounts"))?;
             let store = Store::new(root.clone());
             let cfg = store.load();

@@ -13,7 +13,7 @@ Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · s
 | 2 · Shell & split view | ✅ Done | Tokens + token check test, title bar, rail, panes, divider, sheets, shortcuts, config, cleanup. UI self-test: all pass |
 | 3 · Inside WhatsApp | ✅ Done (1 manual check left) | Native WebView2 events instead of a page script (see 4.4/4.5). Self-test (simulated events): unread from title → rail/status, toast, zoom keys, renderer crash reload, browser crash recreate, crash limit. Not auto-tested: offline page, real WhatsApp notification |
 | 4 · Windows bits | ✅ Done | Close-to-tray, second start focuses first copy, window position saved + off-screen position corrected (tested by script). Tray tooltip/icon dot + taskbar dot run in the self-test without error (looked at by eye only) |
-| 5 · Installer | ⏳ Not started | |
+| 5 · Installer | ✅ Done (clean-user test left) | `tauri build` → 1.23 MB per-user NSIS setup. Tested: silent install, Start-menu shortcut carries AUMID `app.wach.desktop`, installed app starts and shows accounts, silent uninstall removes program + shortcut + entry and keeps data, reinstall. Data moved to `%LOCALAPPDATA%\app.wach.desktop` so it never mixes with the install folder |
 
 **Decisions made while building**
 - **No page script.** Unread comes from Tauri's `on_document_title_changed`; notifications come from WebView2's native `NotificationReceived` event. WhatsApp's page gets no injected code and no IPC capability at all.
@@ -57,7 +57,7 @@ Main window (Tauri, no system frame)
      ├── 0, 1 or 2 placed in the pane rectangles (Single / Split)
      ├── the rest kept alive but out of view (see below)
      ├── url: https://web.whatsapp.com/
-     ├── own data folder: %LOCALAPPDATA%\WACH\accounts\<id>\
+     ├── own data folder: %LOCALAPPDATA%\app.wach.desktop\accounts\<id>\
      └── initialization script: wach-page.js
 ```
 
@@ -106,7 +106,7 @@ Not needed: native WebView2 events cover unread and notifications (see 4.4/4.5).
 
 ## 5. Data and settings
 
-`%LOCALAPPDATA%\WACH\`
+`%LOCALAPPDATA%\app.wach.desktop\` (the program itself installs to `%LOCALAPPDATA%\WACH\`)
 - `config.json` — accounts `[ {id, name, color, notifications, media} ]`, layout `{mode: "single"|"split", left, right, focused, ratio}`, window state, settings (close-to-tray, theme, glow size). Written atomically (temp file + rename).
 - `accounts\<id>\` — WebView2 data per account.
 - `closed.json` — accounts waiting for deletion.
@@ -120,7 +120,7 @@ Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.
 2. **Shell and split view** — `ui/tokens.css` + Night Signal theme, custom title bar, rail, pane headers, status bar; Single/Split, swap, focus, divider; add/rename/close/reorder accounts, `config.json`, closed-account cleanup; logo and icon set in place.
 3. **Page script** — unread counts, notifications with names, toast click → right tab, link rules, permissions.
 4. **Windows bits** — tray, overlay dot, single instance, window position check, crash reload, context menu, offline page, zoom.
-5. **Installer** — Tauri NSIS bundle, per-user install, Start-menu shortcut with AppUserModelID, uninstall removes `%LOCALAPPDATA%\WACH` only if the user ticks it.
+5. **Installer** — Tauri NSIS bundle, per-user install, Start-menu shortcut with AppUserModelID, uninstall removes `%LOCALAPPDATA%\app.wach.desktop` (all accounts) only if the user ticks Tauri's "delete app data" box.
 
 ## 7. Testing
 
