@@ -2,14 +2,14 @@
 
 Notes for whoever picks this up next (a person or a new Claude session). Short on purpose: the plan and progress table are in [PLAN.md](PLAN.md), the look in [DESIGN.md](DESIGN.md).
 
-Last updated: 2026-11-18 (0.2.0 released and installed on the user's PC)
+Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into the repo folder, git-ignored)
 
 ## Release state
 
 - Public repo: https://github.com/vincentrathbone-web/wach (MIT). Release **v0.2.0** with installer, `.sig` and `latest.json`; the update feed URL answers 200.
 - Installed on the user's PC: 0.2.0, both real accounts logged in (Personal, Business), checked by screenshot.
 - **Next update test:** release 0.2.1 (`scripts\release.ps1 -Version 0.2.1 -Notes "…" -Publish`, only with the user's OK), then check the installed copy shows "Update ready · Restart" and updates itself.
-- Updater key `%USERPROFILE%\.tauri\wach-updater.key`: the user should keep a copy somewhere safe.
+- Updater key: two copies on this PC, `%USERPROFILE%\.tauri\wach-updater.key` (what `release.ps1` uses) and `wach-updater.key` (+ `.pub`) in the repo folder, git-ignored by `*.key` / `*.key.pub` (checked with `git check-ignore`). The user should also keep one off this PC.
 
 ### Login incident during the 0.2.0 install (read this before touching profile folders)
 
@@ -23,7 +23,7 @@ Last updated: 2026-11-18 (0.2.0 released and installed on the user's PC)
 
 - **Start with Windows**: `HKCU\…\Run` value `WACH` = `"<exe>" --hidden` (no plugin). `--hidden` keeps the window in the tray; accounts still load. Off by default; Settings + tray toggle. Turning it off only removes an entry that points at *this* exe.
 - **Tray menu** (rebuilt on every unread/setting change): accounts with unread → click opens; Mute (1 hour / until on / unmute, stored as `settings.muted_until`); Start with Windows; Check for updates / Install update; Show; Quit.
-- **Updates**: `tauri-plugin-updater` from Rust only (no JS permission). Endpoint `https://github.com/vincentrathbone-web/wach/releases/latest/download/latest.json`; public key in `tauri.conf.json`; private key `%USERPROFILE%\.tauri\wach-updater.key` (no password, **not in the repo — back it up; lose it and installed copies can't update**). Checks 30 s after start and every 6 h (release builds only); status bar chip "Update x ready · Restart"; installs only on click (NSIS passive, WACH restarts).
+- **Updates**: `tauri-plugin-updater` from Rust only (no JS permission). Endpoint `https://github.com/vincentrathbone-web/wach/releases/latest/download/latest.json`; public key in `tauri.conf.json`; private key `%USERPROFILE%\.tauri\wach-updater.key`, copy in the repo folder (no password, **git-ignored, never commit it; lose it and installed copies can't update**). Checks 30 s after start and every 6 h (release builds only); status bar chip "Update x ready · Restart"; installs only on click (NSIS passive, WACH restarts).
 - **Releases**: `scripts\release.ps1 -Version x.y.z -Notes "…"` builds + signs into `release\x.y.z\` (installer, .sig, latest.json). Add `-Publish` to commit, tag, push and create the GitHub release.
 - **Shorter data paths**: `profiles\` → `wv\`, profile names hex (32) → base32 (20). Chromium's cache paths reached 249 of Windows' 260 chars here; past 260 WhatsApp shows "A database error occurred on your browser". Old folders are moved on start (`Store::migrate_profiles`, retries ~10 s while the old WebView2 lets go); Chromium then re-creates an empty stub of the "last used" old profile, which is deleted on the next start only if it is newer than the moved one.
 
@@ -38,7 +38,7 @@ Measured, 3 test accounts on the QR page + WACH's UI, ~40 s after start:
 | main (one folder per account) | 4 | 29 | 1306 MB |
 | this branch (profiles) | 2 | 18 | 1151 MB |
 
-Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash of the shared browser process takes all accounts down at once (each reloads on its own); switching means scanning QR codes again (old `accounts\<id>` folders are left alone). Debug builds also accept `WACH_DATA_DIR` to test in a separate folder. Self-test 30/30, unit tests pass, cleanup of removed profiles tested.
+Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash of the shared browser process takes all accounts down at once (each reloads on its own); switching means scanning QR codes again (old `accounts\<id>` folders are left alone). Debug builds also accept `WACH_DATA_DIR` to test in a separate folder. Self-test (now 40/40), unit tests pass, cleanup of removed profiles tested.
 
 ## Where we are
 
@@ -61,7 +61,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - Unit + token tests: `cd src-tauri; cargo test` (rules, config, shortcuts, toast text, and `tests/tokens.rs` which fails on raw colours/sizes outside `ui/tokens.css`).
 - UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 40 checks pass**. Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
-- Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~1.2 MB). `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
+- Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~2 MB) + `.sig` + `latest.json`. `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
 - App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
 - On this PC: installed 0.2.0 with the user's two real accounts. **Never run test builds on the real data folder** — debug builds must use `WACH_DATA_DIR` (release builds ignore it, so don't test release builds while the real copy holds logins). The self-test needs 3 accounts — add test ones first when running it.
 - Saved window position can be `-60000,-60000` after a hidden start; WACH opens maximised/on screen anyway (minor, worth a look).
@@ -94,15 +94,16 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - `ui/selftest.js` ships inside the release build (harmless: the debug commands it needs don't exist there). Could be left out later.
 - An empty `EBWebView` folder appears in the data root (WebView2 default folder from the main window); harmless.
 - Fable 5.2 review of PLAN.md (was blocked by usage credits).
-- Optional: shared WebView2 profiles (Option B) to cut memory — see Issues.
+- Release 0.2.1 (with the user's OK) to test a real self-update.
+- Clean up the leftover login copies listed under "Login incident" once the user is happy.
 
 ## Issues found
 
 - `channel = "stable"` in `rust-toolchain.toml` picked the GNU host → `windres` failed. Fixed by naming `stable-x86_64-pc-windows-msvc`.
-- **Memory:** ~370 MB private per account (each data folder = its own browser, GPU and utility processes) + ~150 MB for our UI webview. Over the plan's 150 MB line. Option B (one environment, a WebView2 *profile* per account) would share those processes, but Tauri 2.12 does not pass `profile_name` through to wry (wry 0.57 has `with_profile_name`). Needs a small Tauri patch or upstream PR.
+- **Memory:** ~370 MB private per account (each data folder = its own browser, GPU and utility processes) + ~150 MB for our UI webview. Over the plan's 150 MB line. **Solved with Option B** (one environment, a WebView2 *profile* per account) via our vendored `tauri-runtime-wry` patch. An upstream Tauri PR would let us drop the patch.
 - WhatsApp Web shows a horizontal scrollbar when a pane is under ~600 px wide. Ctrl+− per account helps; maybe default split panes to 90 % zoom later.
 - The WhatsApp page's square corners sit over our pane's rounded bottom corners (cosmetic).
-- **Task Manager** lists WACH's WebView2 processes as separate "WebView2 Manager" / "Utility" rows, not under WACH. That is how current Windows 11 shows every WebView2 app (Outlook and Search look the same here); the processes really are children of `wach.exe`. Tested: dropping our process AppUserModelID changes nothing. Each account's own data folder = its own process tree, so more accounts = more rows. Option B (shared profiles) would merge them into one tree.
+- **Task Manager** lists WACH's WebView2 processes as separate "WebView2 Manager" / "Utility" rows, not under WACH. That is how current Windows 11 shows every WebView2 app (Outlook and Search look the same here); the processes really are children of `wach.exe`. Tested: dropping our process AppUserModelID changes nothing. With Option B all accounts share one process tree, so the row count no longer grows per account.
 - Snap Layouts on the maximise button are not available with our custom title bar (known gap).
 
 ## Lessons learnt

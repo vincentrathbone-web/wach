@@ -2,18 +2,18 @@
 
 A small Windows app that shows several WhatsApp Web accounts side by side, each fully separate, without Electron.
 
-Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · session notes in [HANDOVER.md](HANDOVER.md)
+Status: 0.2.0 released · 2026-11-18 · look and layout in [DESIGN.md](DESIGN.md) · session notes in [HANDOVER.md](HANDOVER.md)
 
 ## Progress
 
 | Milestone | State | Notes |
 |---|---|---|
 | 0 · Setup | ✅ Done | Tauri 2.12, MSVC toolchain pinned |
-| 1 · Spike | ✅ Done (2 manual checks left) | Two accounts side by side, separate storage, resize follows. **Measured ~370 MB private per account** (7 WebView2 processes each) → over the 150 MB line; Option B (profiles) needs Tauri to expose `with_profile_name` (wry has it). Kept Option A for now. Manual: stay-logged-in after restart, notification from a parked account |
+| 1 · Spike | ✅ Done (1 manual check left) | Two accounts side by side, separate storage, resize follows. **Measured ~370 MB private per account** (7 WebView2 processes each) → over the 150 MB line. Option B (profiles) now built with a vendored Tauri patch (`with_profile_name`): ~150 MB less with 3 accounts. Stay-logged-in after restart checked with real accounts on 0.2.0. Manual left: notification from a parked account |
 | 2 · Shell & split view | ✅ Done | Tokens + token check test, title bar, rail, panes, divider, sheets, shortcuts, config, cleanup. UI self-test: all pass |
 | 3 · Inside WhatsApp | ✅ Done (1 manual check left) | Native WebView2 events instead of a page script (see 4.4/4.5). Self-test (simulated events): unread from title → rail/status, toast, zoom keys, renderer crash reload, browser crash recreate, crash limit. Not auto-tested: offline page, real WhatsApp notification |
 | 4 · Windows bits | ✅ Done | Close-to-tray, second start focuses first copy, window position saved + off-screen position corrected (tested by script). Tray tooltip/icon dot + taskbar dot run in the self-test without error (looked at by eye only) |
-| 5 · Installer | ✅ Done (clean-user test left) | `tauri build` → 1.23 MB per-user NSIS setup. Tested: silent install, Start-menu shortcut carries AUMID `app.wach.desktop`, installed app starts and shows accounts, silent uninstall removes program + shortcut + entry and keeps data, reinstall. Data moved to `%LOCALAPPDATA%\app.wach.desktop` so it never mixes with the install folder |
+| 5 · Installer | ✅ Done (clean-user test left) | `tauri build` → per-user NSIS setup (1.23 MB in 0.1, ~2 MB in 0.2.0 with the updater). Tested: silent install, Start-menu shortcut carries AUMID `app.wach.desktop`, installed app starts and shows accounts, silent uninstall removes program + shortcut + entry and keeps data, reinstall. Data moved to `%LOCALAPPDATA%\app.wach.desktop` so it never mixes with the install folder |
 | 6 · Updates, tray, autostart (0.2.0) | ✅ Released: public repo github.com/vincentrathbone-web/wach (MIT), release v0.2.0, installed on the user's PC with both logins. First real self-update needs 0.2.1 | Signed in-app updates from GitHub Releases (ask, then install), tray menu (accounts with unread, mute all, start with Windows, check for updates), start with Windows hidden in the tray, `scripts\release.ps1`. Also: shorter WebView2 paths (`wv\`, base32 profile names) after hitting the 260-char limit. Self-test 40/40 |
 
 **Decisions made while building**
@@ -36,7 +36,9 @@ Status: in build · 2026-11-17 · look and layout in [DESIGN.md](DESIGN.md) · s
 - A crashed account reloads on its own.
 - A Windows installer.
 
-**Not in v1** (may come later): auto-update, start with Windows, per-account mute, extra themes and a theme picker (the token system is v1; more themes are not), translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
+**Added in 0.2.0:** in-app updates, start with Windows, mute all notifications.
+
+**Not in v1** (may come later): per-account mute, extra themes and a theme picker (the token system is v1; more themes are not), translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
 
 **Non-goals, on purpose**
 - Never pretend to be the official WhatsApp app: no native "bridges", no `X-WA-WebView2-Version` header, no fake user agent. We are a plain browser showing WhatsApp Web.
@@ -108,9 +110,11 @@ Not needed: native WebView2 events cover unread and notifications (see 4.4/4.5).
 ## 5. Data and settings
 
 `%LOCALAPPDATA%\app.wach.desktop\` (the program itself installs to `%LOCALAPPDATA%\WACH\`)
-- `config.json` — accounts `[ {id, name, color, notifications, media} ]`, layout `{mode: "single"|"split", left, right, focused, ratio}`, window state, settings (close-to-tray, theme, glow size). Written atomically (temp file + rename).
+- `config.json` — accounts `[ {id, name, color, notifications, media} ]`, layout `{mode: "single"|"split", left, right, focused, ratio}`, window state, settings (close-to-tray, theme, glow size, `muted_until`). Written atomically (temp file + rename).
 - `wv\` — one shared WebView2 folder; each account is a profile in it (Option B, see HANDOVER.md).
 - `closed.json` — accounts waiting for deletion.
+- Start with Windows: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` value `WACH` = `"<exe>" --hidden`.
+- Updater signing key: `%USERPROFILE%\.tauri\wach-updater.key` + a git-ignored copy in the repo folder. Never committed.
 
 Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.
 
@@ -134,7 +138,9 @@ Ids: random, `[A-Za-z0-9_-]{12}`, validated everywhere they become a path.
 |---|---|---|
 | Tauri multi-webview is "unstable" | API may change | Pin Tauri version; isolate window/webview code in one module |
 | Hidden webviews throttled | Missed or late messages | Spike test; switch by z-order instead of hide |
-| Memory with one data folder per account | Heavy with many accounts | Measure; Option B (profiles) |
+| Memory with one data folder per account | Heavy with many accounts | Done: Option B (profiles), ~150 MB less with 3 accounts |
+| Shared browser process (Option B) | One crash takes all accounts down | Each account reloads on its own (crash recovery) |
+| Lost updater key | Installed copies can never update | Two copies on the PC + one off the PC (user) |
 | Toast clicks unpackaged | Clicks do nothing | AUMID + shortcut from installer; pick toast crate in milestone 3 |
 | WhatsApp Web blocks or changes | App breaks | Keep page script minimal; we use only `<title>` and `Notification` |
 | Calls in WhatsApp Web inside WebView2 | May not work | Test in milestone 3; if unsupported, say so in the README |

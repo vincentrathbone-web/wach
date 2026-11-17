@@ -6,7 +6,8 @@
   1. Sets the version in tauri.conf.json and Cargo.toml.
   2. Runs the unit tests.
   3. Builds the NSIS installer, signed with the updater key
-     (%USERPROFILE%\.tauri\wach-updater.key; never commit it).
+     (%USERPROFILE%\.tauri\wach-updater.key; a git-ignored copy sits in
+     the repo folder; never commit it).
   4. Writes latest.json, the file installed copies of WACH read to find updates.
   Everything lands in release\<version>\ (ignored by git).
 

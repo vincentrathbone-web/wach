@@ -34,7 +34,7 @@ cargo test      # unit tests + design-token check
 cargo build     # debug build: target\debug\wach.exe
 ```
 
-Releases: `scripts\release.ps1 -Version x.y.z` (needs the updater signing key, which is not in this repo).
+Releases: `scripts\release.ps1 -Version x.y.z` (needs the updater signing key, which is never committed: `*.key` is git-ignored).
 
 More detail: [PLAN.md](PLAN.md) (how it works and why), [DESIGN.md](DESIGN.md) (look and design tokens), [HANDOVER.md](HANDOVER.md) (state of the project, lessons learnt).
 
