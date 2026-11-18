@@ -161,7 +161,40 @@ window.WACH_SELFTEST = async function (api) {
   chip.hidden = wasHidden;
   chip.textContent = wasText;
 
+  // Themes
+  const tb = document.getElementById("btn-theme").getBoundingClientRect();
+  const sbtn = document.getElementById("btn-settings").getBoundingClientRect();
+  await check("theme button sits just above settings", tb.bottom <= sbtn.top && sbtn.top - tb.bottom < 24 && Math.abs(tb.left - sbtn.left) < 2);
+  const appBg = () => getComputedStyle(document.documentElement).getPropertyValue("--app-bg").trim();
+  await api.setTheme("night-signal"); // start from the default, whatever the test folder had
+  await sleep(100);
+  const night = appBg();
+  const seen = new Set([night]);
+  for (const id of ["glass", "daylight", "graphite", "ember", "contrast"]) {
+    await api.setTheme(id);
+    await sleep(100);
+    const st = await invoke("get_state");
+    const bg = appBg();
+    await check(`theme ${id} applies and is saved`, document.documentElement.dataset.theme === id && st.config.settings.theme.name === id && !seen.has(bg), bg);
+    seen.add(bg);
+  }
+  let bad = false;
+  try { await invoke("set_settings", { theme: "nope" }); } catch (e) { bad = true; }
+  await check("unknown theme rejected", bad && (await invoke("get_state")).config.settings.theme.name === "contrast");
+  api.themeSheet();
+  await sleep(150);
+  const cardBgs = Array.from(document.querySelectorAll(".tp-win")).map((el) => getComputedStyle(el).backgroundColor);
+  await check("theme picker shows 6 different previews", cardBgs.length === 6 && new Set(cardBgs).size === 6, cardBgs.join(" | "));
+  const pb = await bounds();
+  await check("theme picker parks every webview", Object.values(pb).every((r) => r[0] < -1000), JSON.stringify(pb));
+  api.closeSheet();
+  await api.setTheme("night-signal");
+  await sleep(100);
+  await check("back to Night Signal", !document.documentElement.dataset.theme && appBg() === night);
+
   await log(`done: ${fails === 0 ? "ALL PASS" : fails + " FAILED"}`);
-  // Leave Settings open so a screenshot can check the sheet by eye.
-  api.settingsSheet();
+  // Leave a sheet open so a screenshot can check it by eye
+  // (WACH_SELFTEST_SHEET=settings or theme; default settings).
+  if ((await invoke("get_state")).selftest_sheet === "theme") api.themeSheet();
+  else api.settingsSheet();
 };

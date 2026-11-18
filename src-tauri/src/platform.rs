@@ -3,7 +3,7 @@
 use windows::{
     Win32::{
         System::Registry::{
-            HKEY, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ, RegCloseKey, RegCreateKeyExW,
+            HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ, RegCloseKey, RegCreateKeyExW,
             RegDeleteKeyValueW, RegGetValueW, RegSetValueExW,
         },
         UI::{Shell::{SetCurrentProcessExplicitAppUserModelID, ShellExecuteW}, WindowsAndMessaging::SW_SHOWNORMAL},
@@ -61,24 +61,28 @@ fn autostart_command() -> Option<String> {
 
 /// What the Run entry says now, if there is one.
 fn autostart_value() -> Option<String> {
+    reg_string(HKEY_CURRENT_USER, RUN_KEY, RUN_VALUE)
+}
+
+fn reg_string(root: HKEY, key: &str, value: &str) -> Option<String> {
     let mut buf = [0u16; 1024];
     let mut size = (buf.len() * 2) as u32;
     let ok = unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            &HSTRING::from(RUN_KEY),
-            &HSTRING::from(RUN_VALUE),
-            RRF_RT_REG_SZ,
-            None,
-            Some(buf.as_mut_ptr().cast()),
-            Some(&mut size),
-        )
+        RegGetValueW(root, &HSTRING::from(key), &HSTRING::from(value), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr().cast()), Some(&mut size))
     };
     if ok.is_err() {
         return None;
     }
     let len = buf.iter().position(|c| *c == 0).unwrap_or(buf.len());
     Some(String::from_utf16_lossy(&buf[..len]))
+}
+
+/// Windows 11 (build 22000+) draws the Acrylic backdrop smoothly; on Windows
+/// 10 it lags when the window moves, so the Glass theme stays solid there.
+pub fn glass_supported() -> bool {
+    reg_string(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "CurrentBuildNumber")
+        .and_then(|b| b.trim().parse::<u32>().ok())
+        .is_some_and(|b| b >= 22000)
 }
 
 /// On only when the Run entry points at this very exe (a debug build or an

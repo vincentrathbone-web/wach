@@ -78,6 +78,14 @@ impl Default for Theme {
     }
 }
 
+impl Theme {
+    /// A known theme with its colours; `None` for an unknown name.
+    pub fn named(name: &str) -> Option<Self> {
+        let s = rules::theme_spec(name)?;
+        Some(Self { name: name.into(), background: s.background, alert: s.alert })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Settings {
@@ -150,6 +158,8 @@ impl Config {
         l.ratio = l.ratio.clamp(0.2, 0.8);
         l.focused = l.focused.min(1);
         self.settings.glow = self.settings.glow.min(48);
+        // Colours always come from the theme list, never from the file.
+        self.settings.theme = Theme::named(&self.settings.theme.name).unwrap_or_default();
     }
 
     pub fn account(&self, id: &str) -> Option<&Account> {

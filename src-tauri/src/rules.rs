@@ -118,6 +118,33 @@ pub fn is_muted(muted_until: u64, now: u64) -> bool {
     muted_until > now
 }
 
+/// What Rust needs to know about a theme (the rest lives in ui/tokens.css).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ThemeSpec {
+    /// Solid window colour (shown before the UI paints and behind webviews).
+    pub background: [u8; 3],
+    /// Unread dot on the tray and taskbar icons.
+    pub alert: [u8; 3],
+    /// Wants Windows' Acrylic backdrop behind a see-through window.
+    pub glass: bool,
+}
+
+/// Theme ids, in picker order. Keep in sync with ui/tokens.css and app.js.
+pub const THEMES: [&str; 6] = ["night-signal", "glass", "daylight", "graphite", "ember", "contrast"];
+
+pub fn theme_spec(name: &str) -> Option<ThemeSpec> {
+    let (background, alert, glass) = match name {
+        "night-signal" => ([0x0B, 0x12, 0x24], [0xFF, 0x6B, 0x81], false),
+        "glass" => ([0x1C, 0x25, 0x50], [0xFF, 0x6F, 0x9B], true),
+        "daylight" => ([0xEE, 0xF2, 0xF9], [0xD9, 0x2D, 0x4B], false),
+        "graphite" => ([0x12, 0x13, 0x16], [0xF8, 0x71, 0x71], false),
+        "ember" => ([0x15, 0x0D, 0x0C], [0xFF, 0x6B, 0x5E], false),
+        "contrast" => ([0x00, 0x00, 0x00], [0xFF, 0xD4, 0x00], false),
+        _ => return None,
+    };
+    Some(ThemeSpec { background, alert, glass })
+}
+
 pub fn new_id() -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut bytes = [0u8; 12];
@@ -206,6 +233,30 @@ pub fn may_reload(history: &mut Vec<u64>, now: u64, max: usize, window_secs: u64
     }
     history.push(now);
     true
+}
+
+#[cfg(test)]
+mod theme_tests {
+    use super::*;
+
+    #[test]
+    fn every_theme_has_a_spec() {
+        for t in THEMES {
+            assert!(theme_spec(t).is_some(), "{t}");
+        }
+        assert!(theme_spec("nope").is_none());
+        assert!(theme_spec("").is_none());
+        assert_eq!(THEMES.iter().filter(|t| theme_spec(t).unwrap().glass).count(), 1);
+    }
+
+    #[test]
+    fn themes_match_tokens_css() {
+        let css = include_str!("../../ui/tokens.css");
+        for t in THEMES.iter().skip(1) {
+            assert!(css.contains(&format!(":root[data-theme=\"{t}\"], [data-theme-preview=\"{t}\"]")), "tokens.css misses theme {t}");
+        }
+        assert!(css.contains("[data-theme-preview=\"night-signal\"]"));
+    }
 }
 
 #[cfg(test)]

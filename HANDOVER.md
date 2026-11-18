@@ -4,6 +4,15 @@ Notes for whoever picks this up next (a person or a new Claude session). Short o
 
 Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into the repo folder, git-ignored)
 
+## Themes (in the code, not released yet)
+
+- 5 new themes + Night Signal: Glass, Daylight, Graphite, Ember, High Contrast. Approved by the user from the preview artifact https://claude.ai/artifact/Wf8wUESa5fGRgpm8M8yhgR ("All five"); picker = **theme button just above Settings** in the rail (user's choice).
+- How it works: see DESIGN.md §7 (theme blocks in `tokens.css`, `data-theme` on `<html>`, `rules::THEMES`/`theme_spec`, `set_settings { theme }`, `apply_theme` in lib.rs for Acrylic, webview background and tray dot).
+- **The main window is now always created transparent** (for Glass). Watch for: a flash of desktop at the edges while resizing fast, or anything odd with the window shadow. Not seen in testing.
+- Glass see-through needs Windows 11 (`platform::glass_supported`, build ≥ 22000); otherwise solid (`data-solid`).
+- Tested: unit tests (theme list ↔ tokens.css), self-test 51/51 (10 new theme checks), screenshots of all six themes and of the picker in the real app.
+- Self-test can leave the theme picker open: `WACH_SELFTEST_SHEET=theme`.
+
 ## Release state
 
 - Public repo: https://github.com/vincentrathbone-web/wach (MIT). Release **v0.2.0** with installer, `.sig` and `latest.json`; the update feed URL answers 200.
@@ -61,7 +70,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - Tauri CLI: `D:\Dev\toolshed\tauri-cli\node_modules\.bin\tauri.cmd`. NSIS: `D:\Dev\toolshed\nsis`.
 - Build: `cd src-tauri; cargo build` → `target\debug\wach.exe`.
 - Unit + token tests: `cd src-tauri; cargo test` (rules, config, shortcuts, toast text, and `tests/tokens.rs` which fails on raw colours/sizes outside `ui/tokens.css`).
-- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 41 checks pass** (new: update chip sits in the title bar right of the logo). Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`; deleted in the clean-up, so create it again and add 3 test accounts first) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
+- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 51 checks pass** (new: theme button placement, each theme applies + saves, unknown theme rejected, picker shows 6 different previews and parks the webviews). It resets the theme to Night Signal first. `WACH_SELFTEST_SHEET=theme` leaves the theme picker open instead of Settings. Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`, with a `config.json` holding 3 test accounts `TestWork0001`, `TestHome0002`, `TestFam00003`) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
 - Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~2 MB) + `.sig` + `latest.json`. `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
 - App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there on other PCs), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).

@@ -32,7 +32,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-3);
-  background: var(--app-bg);
+  background: transparent; /* the body's --app-bg shows through (one layer, also for Glass) */
   border-bottom: var(--border-width) solid var(--bar-bg);
 }
 .titlebar .logo { width: var(--size-logo); height: var(--size-logo); }
@@ -178,7 +178,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   min-width: 0;
   display: flex;
   padding: var(--pane-gap);
-  background: var(--app-bg);
+  background: transparent;
 }
 .pane {
   min-width: 0;
@@ -187,7 +187,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: roun
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface);
-  border: var(--border-width) solid var(--pane-border);
+  border: var(--pane-border-width) solid var(--pane-border);
   transition: box-shadow var(--speed) var(--ease), border-color var(--speed) var(--ease);
 }
 .pane[data-side="0"] { flex: var(--ratio) 1 0; }
@@ -350,10 +350,41 @@ input[type="range"] { accent-color: var(--primary); width: 100%; }
   gap: var(--space-4);
   padding: var(--space-5);
   border-radius: var(--radius-2xl);
-  background: var(--bar-bg);
+  background: var(--sheet-bg);
   border: var(--border-width) solid var(--border);
   box-shadow: var(--shadow-sheet);
 }
+
+/* ---- Theme picker: each card is a tiny WACH window in its own theme ---- */
+.theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  border: var(--border-strong) solid transparent;
+  background: transparent;
+  text-align: left;
+}
+.theme-card:hover { background: var(--hover-bg); }
+.theme-card[aria-pressed="true"] { border-color: var(--pane-border-focused); box-shadow: var(--glow-focus); }
+.theme-card .name { font-weight: var(--weight-bold); }
+.theme-card .note { line-height: 1.35; }
+.tp { height: calc(var(--size-rail) + var(--size-pane-header)); border-radius: var(--radius-md); overflow: hidden; background: var(--preview-backdrop); border: var(--border-width) solid var(--border); }
+.tp-win { height: 100%; display: flex; flex-direction: column; background: var(--app-bg); color: var(--text); }
+.tp-bar { height: var(--space-4); flex: none; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border-bottom: var(--border-width) solid var(--bar-bg); }
+.tp-bar .logo { width: var(--size-icon-sm); height: var(--size-icon-sm); }
+.tp-bar i { height: var(--space-2); width: var(--space-6); border-radius: var(--radius-pill); background: var(--primary); box-shadow: var(--glow-button); }
+.tp-body { flex: 1; display: flex; min-height: 0; }
+.tp-rail { width: var(--space-5); flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); padding-top: var(--space-1); background: var(--surface); }
+.tp-rail i { width: var(--space-3); height: var(--space-3); border-radius: var(--radius-xs); background: var(--bar-bg); border: var(--border-width) solid var(--rail-ring-other); }
+.tp-rail i:first-child { border-color: var(--rail-ring-focused); box-shadow: var(--glow-focus); }
+.tp-panes { flex: 1; display: flex; gap: var(--space-1); padding: var(--space-1); min-width: 0; }
+.tp-pane { flex: 1; display: flex; flex-direction: column; border-radius: var(--radius-xs); background: var(--surface); border: var(--pane-border-width) solid var(--pane-border); overflow: hidden; }
+.tp-pane.f { border-color: var(--pane-border-focused); box-shadow: var(--glow-focus); }
+.tp-pane b { height: var(--space-2); background: var(--bar-bg); flex: none; }
+.tp-pane s { margin: var(--space-1); height: var(--space-1); width: 60%; border-radius: var(--radius-pill); background: var(--text-faint); }
 .sheet h2 { margin: 0; font-family: var(--font-brand); font-size: var(--text-xl); }
 #sheet-body { display: flex; flex-direction: column; gap: var(--space-4); }
 

@@ -1,7 +1,10 @@
 /* WACH design tokens — the ONLY file with raw design values.
-   Theme "Night Signal" (DESIGN.md §3–4). A new theme overrides these. */
+   Default theme "Night Signal" (DESIGN.md §3–4) on :root. Other themes
+   (further down) override the role tokens via <html data-theme="…">.
+   [data-theme-preview="…"] gives a theme's tokens to one element (the
+   previews in the theme picker), whatever the current theme is. */
 
-:root {
+:root, [data-theme-preview="night-signal"] {
   color-scheme: dark;
 
   /* Palette */
@@ -43,9 +46,6 @@
   --glow-color: rgba(61, 139, 255, 0.35);
   --glow-strong: rgba(42, 100, 246, 0.6);
   --glow-ring: rgba(111, 177, 255, 0.25);
-  --glow-focus: 0 0 0 1px var(--glow-ring), 0 0 var(--glow-size) var(--glow-color);
-  --glow-button: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
-  --glow-badge: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
   --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.5);
 
   /* Radius */
@@ -94,7 +94,6 @@
   /* Borders */
   --border-width: 1px;
   --border-strong: 2px;
-  --focus-ring: 2px solid var(--color-sky);
 
   /* Type */
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
@@ -140,6 +139,245 @@
   --initial-text: var(--color-navy);
   --scrim: var(--color-scrim);
   --kbd: var(--color-ice);
+  --sheet-bg: var(--color-panel);
+  --pane-border-width: var(--border-width);
+  /* What sits behind a theme preview card (stands in for the desktop). */
+  --preview-backdrop: transparent;
+}
+
+/* ---------------------------------------------------------------- themes
+   Each theme sets the role tokens directly (not the palette), so a preview
+   element gets correct values without inheriting the current theme's.
+   Keep these names in sync with THEMES in src-tauri/src/rules.rs. */
+
+/* Glass: see-through window over Windows 11's Acrylic backdrop. */
+:root[data-theme="glass"], [data-theme-preview="glass"] {
+  color-scheme: dark;
+  --app-bg: rgba(16, 22, 44, 0.45);
+  --surface: rgba(255, 255, 255, 0.07);
+  --bar-bg: rgba(255, 255, 255, 0.10);
+  --hover-bg: rgba(255, 255, 255, 0.16);
+  --border: rgba(255, 255, 255, 0.18);
+  --text: #f5f8ff;
+  --text-muted: rgba(235, 240, 255, 0.74);
+  --text-faint: rgba(235, 240, 255, 0.5);
+  --accent: #a9d6ff;
+  --primary: rgba(108, 155, 255, 0.9);
+  --on-primary: #ffffff;
+  --badge-bg: #ff6f9b;
+  --badge-text: #ffffff;
+  --pane-border: rgba(255, 255, 255, 0.20);
+  --pane-border-focused: rgba(190, 225, 255, 0.95);
+  --rail-ring-focused: #bfe1ff;
+  --rail-ring-other: rgba(255, 255, 255, 0.30);
+  --divider-grip: rgba(255, 255, 255, 0.35);
+  --danger: #ff7a9a;
+  --ok: #5eead4;
+  --warn: #fcd34d;
+  --initial-text: #101830;
+  --scrim: rgba(8, 12, 28, 0.55);
+  --kbd: #e2eeff;
+  --sheet-bg: rgba(28, 36, 72, 0.94);
+  --preview-backdrop: linear-gradient(135deg, #3fa7d6 0%, #b26bff 55%, #ff7aa8 100%);
+  --glow-color: rgba(170, 215, 255, 0.35);
+  --glow-strong: rgba(140, 180, 255, 0.55);
+  --glow-ring: rgba(200, 230, 255, 0.30);
+  --logo-from: #d6ecff;
+  --logo-to: #7aa6ff;
+  --logo-pane-dark: #1a2348;
+  --account-sky: #9fd0ff;
+  --account-violet: #c4b0ff;
+  --account-mint: #7ff0d6;
+  --account-amber: #fcd38a;
+  --account-rose: #ff9db8;
+  --account-teal: #7ee8dc;
+}
+/* Glass without the Windows 11 backdrop (Windows 10): same colours, solid. */
+:root[data-theme="glass"][data-solid] {
+  --app-bg: #1c2550;
+  --surface: #222c5a;
+  --bar-bg: #2a3566;
+  --hover-bg: #344073;
+}
+
+/* Daylight: the light theme. */
+:root[data-theme="daylight"], [data-theme-preview="daylight"] {
+  color-scheme: light;
+  --app-bg: #eef2f9;
+  --surface: #ffffff;
+  --bar-bg: #e2e8f3;
+  --hover-bg: #d9e1ef;
+  --border: #cbd5e6;
+  --text: #121a2e;
+  --text-muted: #4d5a78;
+  --text-faint: #7d89a3;
+  --accent: #2a64f6;
+  --primary: #2a64f6;
+  --on-primary: #ffffff;
+  --badge-bg: #2a64f6;
+  --badge-text: #ffffff;
+  --pane-border: #cbd5e6;
+  --pane-border-focused: #2a64f6;
+  --rail-ring-focused: #2a64f6;
+  --rail-ring-other: #a4b3d1;
+  --divider-grip: #a4b3d1;
+  --danger: #d92d4b;
+  --ok: #0e9f6e;
+  --warn: #b7791f;
+  --initial-text: #ffffff;
+  --scrim: rgba(18, 26, 46, 0.35);
+  --kbd: #2446a8;
+  --sheet-bg: #ffffff;
+  --shadow-sheet: 0 24px 64px rgba(18, 26, 46, 0.25);
+  --glow-color: rgba(42, 100, 246, 0.18);
+  --glow-strong: rgba(42, 100, 246, 0.28);
+  --glow-ring: rgba(42, 100, 246, 0.20);
+  --logo-from: #6fb1ff;
+  --logo-to: #2a64f6;
+  --logo-pane-dark: #0b1224;
+  --account-sky: #2f7fe0;
+  --account-violet: #7b5be0;
+  --account-mint: #0f9a72;
+  --account-amber: #b7791f;
+  --account-rose: #d6336c;
+  --account-teal: #0f8f86;
+}
+
+/* Graphite: calm neutral greys, quiet indigo. */
+:root[data-theme="graphite"], [data-theme-preview="graphite"] {
+  color-scheme: dark;
+  --app-bg: #121316;
+  --surface: #18191d;
+  --bar-bg: #1f2125;
+  --hover-bg: #282a30;
+  --border: #2d3036;
+  --text: #e6e7ea;
+  --text-muted: #9a9ea8;
+  --text-faint: #6b707a;
+  --accent: #a5b4fc;
+  --primary: #5b5fe0;
+  --on-primary: #ffffff;
+  --badge-bg: #5b5fe0;
+  --badge-text: #ffffff;
+  --pane-border: #2d3036;
+  --pane-border-focused: #a5b4fc;
+  --rail-ring-focused: #a5b4fc;
+  --rail-ring-other: #454952;
+  --divider-grip: #454952;
+  --danger: #f87171;
+  --ok: #4ade80;
+  --warn: #facc15;
+  --initial-text: #121316;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --kbd: #c7cdfa;
+  --sheet-bg: #1f2125;
+  --glow-color: rgba(165, 180, 252, 0.12);
+  --glow-strong: rgba(91, 95, 224, 0.25);
+  --glow-ring: rgba(165, 180, 252, 0.18);
+  --logo-from: #c3cbfd;
+  --logo-to: #5b5fe0;
+  --logo-pane-dark: #18191d;
+  --account-sky: #93b4f5;
+  --account-violet: #b9a6f7;
+  --account-mint: #7fd6a8;
+  --account-amber: #e9c46a;
+  --account-rose: #f19bb0;
+  --account-teal: #7dd3c8;
+}
+
+/* Ember: warm, low light, amber glow. */
+:root[data-theme="ember"], [data-theme-preview="ember"] {
+  color-scheme: dark;
+  --app-bg: #150d0c;
+  --surface: #1d1412;
+  --bar-bg: #271a17;
+  --hover-bg: #32221e;
+  --border: #3b2a26;
+  --text: #f8ece6;
+  --text-muted: #c4a79e;
+  --text-faint: #8a6f68;
+  --accent: #ffb35c;
+  --primary: #e9782f;
+  --on-primary: #1f0d05;
+  --badge-bg: #ff6b5e;
+  --badge-text: #1f0d05;
+  --pane-border: #3b2a26;
+  --pane-border-focused: #ffb35c;
+  --rail-ring-focused: #ffb35c;
+  --rail-ring-other: #5d3d35;
+  --divider-grip: #5d3d35;
+  --danger: #ff6b5e;
+  --ok: #a3d977;
+  --warn: #ffc857;
+  --initial-text: #1d1412;
+  --scrim: rgba(10, 5, 4, 0.7);
+  --kbd: #ffd7ad;
+  --sheet-bg: #271a17;
+  --glow-color: rgba(255, 150, 70, 0.30);
+  --glow-strong: rgba(233, 120, 47, 0.55);
+  --glow-ring: rgba(255, 179, 92, 0.25);
+  --logo-from: #ffc988;
+  --logo-to: #e9782f;
+  --logo-pane-dark: #1d1412;
+  --account-sky: #8cc8ff;
+  --account-violet: #f49ac1;
+  --account-mint: #a3d977;
+  --account-amber: #ffb35c;
+  --account-rose: #ff8a80;
+  --account-teal: #7fd8c8;
+}
+
+/* High Contrast: black, white, yellow; no glow; thick pane borders. */
+:root[data-theme="contrast"], [data-theme-preview="contrast"] {
+  color-scheme: dark;
+  --app-bg: #000000;
+  --surface: #000000;
+  --bar-bg: #0d0d0d;
+  --hover-bg: #262626;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-muted: #e6e6e6;
+  --text-faint: #bdbdbd;
+  --accent: #ffd400;
+  --primary: #ffd400;
+  --on-primary: #000000;
+  --badge-bg: #ffd400;
+  --badge-text: #000000;
+  --pane-border: #9a9a9a;
+  --pane-border-focused: #ffd400;
+  --pane-border-width: 2px;
+  --rail-ring-focused: #ffd400;
+  --rail-ring-other: #9a9a9a;
+  --divider-grip: #ffffff;
+  --danger: #ff4d6d;
+  --ok: #3ddc84;
+  --warn: #ffd400;
+  --initial-text: #000000;
+  --scrim: rgba(0, 0, 0, 0.85);
+  --kbd: #ffd400;
+  --sheet-bg: #000000;
+  --shadow-sheet: 0 0 0 2px #ffffff;
+  --glow-color: transparent;
+  --glow-strong: transparent;
+  --glow-ring: #ffd400;
+  --logo-from: #ffffff;
+  --logo-to: #ffd400;
+  --logo-pane-dark: #000000;
+  --account-sky: #7cc4ff;
+  --account-violet: #d0a8ff;
+  --account-mint: #3ddc84;
+  --account-amber: #ffd400;
+  --account-rose: #ff8fab;
+  --account-teal: #5eead4;
+}
+
+/* Built from the tokens above, so they must be declared on every element
+   that carries a theme (custom properties resolve where they are declared). */
+:root, [data-theme-preview] {
+  --glow-focus: 0 0 0 1px var(--glow-ring), 0 0 var(--glow-size) var(--glow-color);
+  --glow-button: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
+  --glow-badge: 0 0 calc(var(--glow-size) / 2) var(--glow-strong);
+  --focus-ring: 2px solid var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

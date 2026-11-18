@@ -15,6 +15,7 @@ Each account runs [WhatsApp Web](https://web.whatsapp.com) in its own private We
 - Tray menu: jump to an account, mute all notifications (1 hour or until turned back on), start with Windows, check for updates.
 - Start with Windows, quietly in the tray.
 - Signed in-app updates from this repo's GitHub Releases (WACH asks before installing).
+- Six themes: Night Signal, Glass (frosted, see-through on Windows 11), Daylight, Graphite, Ember and High Contrast. Pick one with the theme button above Settings.
 - Per-account zoom, crash recovery, keyboard shortcuts (`Ctrl+\` split, `Ctrl+Tab` other pane, `Ctrl+U` swap, `Ctrl+1…9` accounts).
 - No telemetry.
 

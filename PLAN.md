@@ -14,7 +14,8 @@ Status: 0.2.0 released · 2026-11-18 · look and layout in [DESIGN.md](DESIGN.md
 | 3 · Inside WhatsApp | ✅ Done (1 manual check left) | Native WebView2 events instead of a page script (see 4.4/4.5). Self-test (simulated events): unread from title → rail/status, toast, zoom keys, renderer crash reload, browser crash recreate, crash limit. Not auto-tested: offline page, real WhatsApp notification |
 | 4 · Windows bits | ✅ Done | Close-to-tray, second start focuses first copy, window position saved + off-screen position corrected (tested by script). Tray tooltip/icon dot + taskbar dot run in the self-test without error (looked at by eye only) |
 | 5 · Installer | ✅ Done (clean-user test left) | `tauri build` → per-user NSIS setup (1.23 MB in 0.1, ~2 MB in 0.2.0 with the updater). Tested: silent install, Start-menu shortcut carries AUMID `app.wach.desktop`, installed app starts and shows accounts, silent uninstall removes program + shortcut + entry and keeps data, reinstall. Data moved to `%LOCALAPPDATA%\app.wach.desktop` so it never mixes with the install folder |
-| 6 · Updates, tray, autostart (0.2.0) | ✅ Released: public repo github.com/vincentrathbone-web/wach (MIT), release v0.2.0, installed on the user's PC with both logins. v0.2.1 and v0.2.2 released (0.2.2 moves the update chip to the title bar); the installed 0.2.0 found 0.2.2 and updated itself on click | Signed in-app updates from GitHub Releases (ask, then install), tray menu (accounts with unread, mute all, start with Windows, check for updates), start with Windows hidden in the tray, `scripts\release.ps1`. Also: shorter WebView2 paths (`wv\`, base32 profile names) after hitting the 260-char limit. Self-test 40/40 |
+| 6 · Updates, tray, autostart (0.2.0) | ✅ Released: public repo github.com/vincentrathbone-web/wach (MIT), release v0.2.0, installed on the user's PC with both logins. v0.2.1 and v0.2.2 released (0.2.2 moves the update chip to the title bar); the installed 0.2.0 found 0.2.2 and updated itself on click |
+| 7 · Themes (0.3) | ✅ Built, not released | 5 new themes (Glass with Windows 11 Acrylic, Daylight, Graphite, Ember, High Contrast) approved from a preview artifact; theme button above Settings with live mini previews; instant switch, saved in config; tray dot + window colour per theme. Unit tests + self-test 51/51 + screenshots of every theme | Signed in-app updates from GitHub Releases (ask, then install), tray menu (accounts with unread, mute all, start with Windows, check for updates), start with Windows hidden in the tray, `scripts\release.ps1`. Also: shorter WebView2 paths (`wv\`, base32 profile names) after hitting the 260-char limit. Self-test 40/40 |
 
 **Decisions made while building**
 - **No page script.** Unread comes from Tauri's `on_document_title_changed`; notifications come from WebView2's native `NotificationReceived` event. WhatsApp's page gets no injected code and no IPC capability at all.
@@ -38,7 +39,9 @@ Status: 0.2.0 released · 2026-11-18 · look and layout in [DESIGN.md](DESIGN.md
 
 **Added in 0.2.0:** in-app updates, start with Windows, mute all notifications.
 
-**Not in v1** (may come later): per-account mute, extra themes and a theme picker (the token system is v1; more themes are not), translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
+**Themes (0.3, built, not released yet):** Glass (Windows 11 Acrylic), Daylight, Graphite, Ember, High Contrast next to Night Signal; theme button above Settings in the rail. See DESIGN.md §7.
+
+**Not in v1** (may come later): per-account mute, translations, `whatsapp://` links, Enter-key options, resource tools, migrating Altus + accounts (users rescan QR codes once).
 
 **Non-goals, on purpose**
 - Never pretend to be the official WhatsApp app: no native "bridges", no `X-WA-WebView2-Version` header, no fake user agent. We are a plain browser showing WhatsApp Web.

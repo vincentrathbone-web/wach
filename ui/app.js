@@ -9,6 +9,15 @@ const listen = (event, cb) =>
   T.invoke("plugin:event|listen", { event, target: { kind: "Any" }, handler: T.transformCallback((e) => cb(e.payload)) });
 
 const COLORS = ["sky", "violet", "mint", "amber", "rose", "teal"];
+// Theme ids match ui/tokens.css and THEMES in src-tauri/src/rules.rs.
+const THEMES = [
+  ["night-signal", "Night Signal", "Deep navy with an electric-blue glow."],
+  ["glass", "Glass", "Frosted, see-through window over your desktop."],
+  ["daylight", "Daylight", "Light: cool white and crisp blue."],
+  ["graphite", "Graphite", "Calm charcoal greys, quiet indigo."],
+  ["ember", "Ember", "Warm cocoa and amber, easy at night."],
+  ["contrast", "High Contrast", "Black, white and yellow. Clearest text."],
+];
 const SPLIT_MIN_WIDTH = 700;
 
 const S = { cfg: null, unread: {}, maximized: false, sheet: false, crashed: {} };
@@ -494,6 +503,59 @@ function settingsSheet() {
   ]);
 }
 
+// ------------------------------------------------------------ themes
+
+const themeName = () => S.cfg.settings.theme?.name || "night-signal";
+
+function applyTheme(name) {
+  const root = document.documentElement;
+  if (name === "night-signal") delete root.dataset.theme;
+  else root.dataset.theme = name;
+  // Glass without Windows 11's backdrop: same colours, solid.
+  if (name === "glass" && !S.glassOk) root.dataset.solid = "";
+  else delete root.dataset.solid;
+}
+
+async function setTheme(name) {
+  applyTheme(name);
+  S.cfg.settings.theme = { ...S.cfg.settings.theme, name };
+  try { await invoke("set_settings", { theme: name }); } catch (e) { console.error("theme", e); }
+}
+
+function themePreview(id) {
+  return h("div", { class: "tp", "data-theme-preview": id, "aria-hidden": "true" },
+    h("div", { class: "tp-win" },
+      h("div", { class: "tp-bar" }, h("i")),
+      h("div", { class: "tp-body" },
+        h("div", { class: "tp-rail" }, h("i"), h("i")),
+        h("div", { class: "tp-panes" },
+          h("div", { class: "tp-pane" }, h("b"), h("s")),
+          h("div", { class: "tp-pane f" }, h("b"), h("s"))))));
+}
+
+function themeSheet() {
+  const cards = THEMES.map(([id, name, mood]) =>
+    h("button", {
+      type: "button",
+      class: "theme-card",
+      "data-theme-id": id,
+      "aria-pressed": String(themeName() === id),
+      onclick: async (e) => {
+        $$(".theme-card").forEach((c) => c.setAttribute("aria-pressed", "false"));
+        e.currentTarget.setAttribute("aria-pressed", "true");
+        await setTheme(id);
+      },
+    },
+    themePreview(id),
+    h("span", { class: "name", text: name }),
+    h("span", { class: "note", text: id === "glass" && !S.glassOk ? "Solid here: see-through needs Windows 11." : mood })));
+  openSheet("Theme", [
+    h("div", { class: "theme-grid" }, cards),
+    h("p", { class: "note", text: "Changes WACH's own window. The WhatsApp pages keep WhatsApp's own look; choose light or dark in WhatsApp's own settings." }),
+    h("div", { class: "row end" }, h("button", { type: "button", class: "btn primary", text: "Done", onclick: closeSheet })),
+  ]);
+}
+
 function updateLine() {
   const u = S.update || { state: "idle" };
   switch (u.state) {
@@ -516,6 +578,7 @@ function wire() {
   $("#btn-close").onclick = () => invoke("window_cmd", { action: "close" });
   $("#btn-add").onclick = addSheet;
   $("#btn-settings").onclick = settingsSheet;
+  $("#btn-theme").onclick = themeSheet;
 
   $("#titlebar").addEventListener("mousedown", (e) => {
     if (e.button !== 0 || e.target.closest("button")) return;
@@ -584,6 +647,8 @@ async function main() {
   S.settings = st.settings;
   S.version = st.version;
   S.update = st.update;
+  S.glassOk = !!st.glass_ok;
+  applyTheme(themeName());
   // First run with accounts but no layout yet: fill the panes in order.
   if (!L().left && accounts()[0]) L().left = accounts()[0].id;
   if (!L().right && accounts()[1] && accounts()[1].id !== L().left) L().right = accounts()[1].id;
@@ -618,7 +683,7 @@ async function main() {
     s.onload = () =>
       window.WACH_SELFTEST({
         S, L, invoke, listen, sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-        swapPanes, toggleSplit, showInFocused, onShortcut, settingsSheet, closeSheet, commit,
+        swapPanes, toggleSplit, showInFocused, onShortcut, settingsSheet, closeSheet, commit, themeSheet, setTheme,
       }).catch((e) => invoke("debug_log", { line: "FAIL crashed: " + e }));
     document.head.append(s);
   }

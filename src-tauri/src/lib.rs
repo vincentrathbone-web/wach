@@ -97,6 +97,25 @@ pub(crate) fn set_mute(app: &AppHandle, choice: &str) {
     }
 }
 
+/// Window backdrop, webview background and tray dot for the saved theme.
+/// (The UI recolours itself from ui/tokens.css.)
+fn apply_theme(app: &AppHandle) {
+    let theme = app.state::<App>().cfg.lock().unwrap().settings.theme.clone();
+    let spec = rules::theme_spec(&theme.name).unwrap_or_else(|| rules::theme_spec("night-signal").unwrap());
+    if let Some(window) = app.get_window("main") {
+        let effects = (spec.glass && platform::glass_supported())
+            .then(|| tauri::window::EffectsBuilder::new().effect(tauri::window::Effect::Acrylic).build());
+        let _ = window.set_effects(effects);
+    }
+    let [r, g, b] = spec.background;
+    for (label, webview) in app.webviews() {
+        if label != "ui" {
+            let _ = webview.set_background_color(Some(Color(r, g, b, 255)));
+        }
+    }
+    tray::update(app);
+}
+
 pub(crate) fn set_autostart(app: &AppHandle, on: bool) -> Result<(), String> {
     let r = platform::set_autostart(on);
     settings_changed(app);
@@ -218,8 +237,12 @@ struct StateDto {
     settings: SettingsDto,
     version: String,
     update: update::Status,
+    /// Windows 11: the Glass theme can be see-through.
+    glass_ok: bool,
     /// Debug builds only: run ui/selftest.js (WACH_SELFTEST=1).
     selftest: bool,
+    /// Debug builds only: which sheet the self-test leaves open (WACH_SELFTEST_SHEET).
+    selftest_sheet: String,
 }
 
 /// Debug builds only: where each account webview is (physical px; x < -1000 = parked).
@@ -306,7 +329,9 @@ fn get_state(webview: Webview, app: AppHandle, state: State<App>, updates: State
         settings,
         version: app.package_info().version.to_string(),
         update: updates.status.lock().unwrap().clone(),
+        glass_ok: platform::glass_supported(),
         selftest: cfg!(debug_assertions) && std::env::var("WACH_SELFTEST").is_ok_and(|v| v == "1"),
+        selftest_sheet: if cfg!(debug_assertions) { std::env::var("WACH_SELFTEST_SHEET").unwrap_or_default() } else { String::new() },
     })
 }
 
@@ -478,8 +503,13 @@ fn set_settings(
     glow: Option<u32>,
     autostart: Option<bool>,
     mute: Option<String>,
+    theme: Option<String>,
 ) -> Result<SettingsDto, String> {
     ui_only(&webview)?;
+    let new_theme = match theme.as_deref() {
+        Some(name) => Some(config::Theme::named(name).ok_or("Unknown theme.")?),
+        None => None,
+    };
     {
         let mut cfg = state.cfg.lock().unwrap();
         if let Some(v) = close_to_tray {
@@ -488,8 +518,14 @@ fn set_settings(
         if let Some(g) = glow {
             cfg.settings.glow = g.min(48);
         }
+        if let Some(t) = &new_theme {
+            cfg.settings.theme = t.clone();
+        }
     }
     state.save();
+    if new_theme.is_some() {
+        apply_theme(&app);
+    }
     if let Some(choice) = mute {
         if rules::mute_until(&choice, 0).is_none() {
             return Err("Unknown mute choice.".into());
@@ -646,7 +682,10 @@ pub fn run() {
                 .inner_size(1100.0, 760.0)
                 .min_inner_size(520.0, 400.0)
                 .decorations(false)
-                .background_color(Color(bg[0], bg[1], bg[2], 255))
+                // See-through so the Glass theme can show Windows' Acrylic
+                // backdrop; every other theme paints a solid body.
+                .transparent(true)
+                .background_color(Color(bg[0], bg[1], bg[2], 0))
                 .visible(false)
                 .build()?;
             if let Some(icon) = app.default_window_icon() {
@@ -680,7 +719,7 @@ pub fn run() {
             let scale = window.scale_factor()?;
             let ui = WebviewBuilder::new("ui", WebviewUrl::App("index.html".into()))
                 .data_directory(root.join("ui"))
-                .background_color(Color(bg[0], bg[1], bg[2], 255))
+                .background_color(Color(bg[0], bg[1], bg[2], 0))
                 .devtools(cfg!(debug_assertions))
                 .zoom_hotkeys_enabled(false)
                 .auto_resize();
@@ -693,6 +732,7 @@ pub fn run() {
             }
 
             tray::create(app.handle())?;
+            apply_theme(app.handle());
 
             let app2 = app.handle().clone();
             window.on_window_event(move |event| match event {
