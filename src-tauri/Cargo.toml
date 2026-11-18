@@ -1,6 +1,6 @@
 [package]
 name = "wach"
-version = "0.2.2"
+version = "0.3.0"
 description = "Several WhatsApp Web accounts side by side, each fully separate."
 edition = "2024"
 rust-version = "1.90"
