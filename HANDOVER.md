@@ -17,7 +17,8 @@ Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into 
 - After installing 0.2.0 both accounts showed the QR code. The folder move itself worked (data intact, path now max 231 chars).
 - Cause found: the Option B profiles (`profiles\…\WV2Profile_<hex>`) **never held a login on disk** — no `last-wid-md` / `WALid` in their Local Storage, and the IndexedDB stopped changing ~15 min after the user scanned. The backup taken right before the install is the same. Why the Option B login didn't stick is **not known** (maybe the session was dropped by WhatsApp while we kept restarting/killing WACH in tests). Watch for it: if a login disappears again, check `Local Storage\leveldb` for `last-wid-md` first.
 - Fix used: the older one-folder-per-account data (`accounts\<id>\EBWebView\Default`, still logged in) copied into `wv\EBWebView\WV2Profile_<base32>`. A Default folder works as a profile folder as is. Tested in `D:\wtest5` first, including a forced close + restart, then copied into the real data.
-- Left on disk (private login data, can be deleted once the user is happy): `D:\VS Code\WACH - Whatsapp Client\login-backup-2026-11-18` (pre-install backup, not logged in), `%LOCALAPPDATA%\app.wach.desktop-qr-aside` (the QR-only profiles), `D:\wtest4`, `D:\wtest5` (**a copy of the live logins: never run WACH on it again**, two copies of one linked device can get it logged out). `accounts\<id>\` is still there too; nothing deletes it.
+- Cleaned up on 2026-11-18 at the user's request: the pre-install backup, the QR-only profiles, the old `accounts\` folder and the test folders `D:\wtest`, `D:\wtest3`–`D:\wtest5` are all deleted. **The live `wv\` profiles are now the only copy of the logins** — if they break, the user scans the QR codes again.
+- Never keep a second running copy of a live login (two copies of one linked device can get it logged out).
 - Quick way to tell if a WhatsApp profile is logged in: `Select-String -SimpleMatch last-wid-md` over `<profile>\Local Storage\leveldb\*.log`.
 
 ## 0.2.0 — what's new
@@ -39,7 +40,7 @@ Measured, 3 test accounts on the QR page + WACH's UI, ~40 s after start:
 | main (one folder per account) | 4 | 29 | 1306 MB |
 | this branch (profiles) | 2 | 18 | 1151 MB |
 
-Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash of the shared browser process takes all accounts down at once (each reloads on its own); switching means scanning QR codes again (old `accounts\<id>` folders are left alone). Debug builds also accept `WACH_DATA_DIR` to test in a separate folder. Self-test (now 40/40), unit tests pass, cleanup of removed profiles tested.
+Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash of the shared browser process takes all accounts down at once (each reloads on its own); switching meant scanning QR codes again (old `accounts\<id>` folders were left alone; deleted on the user's PC since). Debug builds also accept `WACH_DATA_DIR` to test in a separate folder. Self-test (now 40/40), unit tests pass, cleanup of removed profiles tested.
 
 ## Where we are
 
@@ -60,10 +61,10 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - Tauri CLI: `D:\Dev\toolshed\tauri-cli\node_modules\.bin\tauri.cmd`. NSIS: `D:\Dev\toolshed\nsis`.
 - Build: `cd src-tauri; cargo build` → `target\debug\wach.exe`.
 - Unit + token tests: `cd src-tauri; cargo test` (rules, config, shortcuts, toast text, and `tests/tokens.rs` which fails on raw colours/sizes outside `ui/tokens.css`).
-- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 41 checks pass** (new: update chip sits in the title bar right of the logo). Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
+- UI self-test (debug build only): set `WACH_SELFTEST=1`, start `wach.exe`, read stderr. It drives split/single/swap/shortcuts/sheets/divider/add/rename/remove and checks where Rust really placed each webview. It also fakes WhatsApp events through the debug-only `debug_simulate` command (unread, toast, zoom, crashes), and checks mute, autostart and the update check. It leaves Settings open at the end for a screenshot. Last run: **all 41 checks pass** (new: update chip sits in the title bar right of the logo). Run it with `WACH_DATA_DIR` set to a **short** folder (e.g. `D:\wtest3`; deleted in the clean-up, so create it again and add 3 test accounts first) — a deep folder pushes WebView2 paths past 260 chars and WhatsApp's database breaks.
 - **Only one copy runs** (single-instance). Kill `wach.exe` before rebuilding, or the build fails with "Access is denied" and a new start just focuses the old copy.
 - Installer / release: quit WACH, then `scripts\release.ps1 -Version x.y.z` (builds + signs, ~5 min) → `release\x.y.z\WACH_x.y.z_x64-setup.exe` (~2 MB) + `.sig` + `latest.json`. `/S` installs silently. Program goes to `%LOCALAPPDATA%\WACH\`.
-- App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
+- App data: `%LOCALAPPDATA%\app.wach.desktop\` (moved from `%LOCALAPPDATA%\WACH\` on first start, see `move_old_data`) → `config.json`, `closed.json`, `wv\` (the shared WebView2 folder, one profile per account; old `accounts\<id>\` folders from 0.1 may still be there on other PCs), `ui\` (our interface's own WebView2 folder), `wach.png` (toast icon).
 - On this PC: installed 0.2.0 with the user's two real accounts. **Never run test builds on the real data folder** — debug builds must use `WACH_DATA_DIR` (release builds ignore it, so don't test release builds while the real copy holds logins). The self-test needs 3 accounts — add test ones first when running it.
 - Saved window position can be `-60000,-60000` after a hidden start; WACH opens maximised/on screen anyway (minor, worth a look).
 
@@ -96,7 +97,6 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - An empty `EBWebView` folder appears in the data root (WebView2 default folder from the main window); harmless.
 - Fable 5.2 review of PLAN.md (was blocked by usage credits).
 - Next release: check by eye that the update chip shows in the title bar (0.2.2 is the first version with it there).
-- Clean up the leftover login copies listed under "Login incident" once the user is happy.
 
 ## Issues found
 
