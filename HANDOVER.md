@@ -4,7 +4,7 @@ Notes for whoever picks this up next (a person or a new Claude session). Short o
 
 Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into the repo folder, git-ignored)
 
-## Themes (in the code, not released yet)
+## Themes (released in v0.3.0, 2026-11-18)
 
 - 5 new themes + Night Signal: Glass, Daylight, Graphite, Ember, High Contrast. Approved by the user from the preview artifact https://claude.ai/artifact/Wf8wUESa5fGRgpm8M8yhgR ("All five"); picker = **theme button just above Settings** in the rail (user's choice).
 - How it works: see DESIGN.md §7 (theme blocks in `tokens.css`, `data-theme` on `<html>`, `rules::THEMES`/`theme_spec`, `set_settings { theme }`, `apply_theme` in lib.rs for Acrylic, webview background and tray dot).
@@ -63,6 +63,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 | 4 · Windows integration | Done |
 | 5 · Installer | Done — installed on this PC; clean-user test left |
 | 6 · Updates, tray, autostart (0.2.0) | Done — public repo, v0.2.0 → v0.2.2; self-update from 0.2.0 to 0.2.2 worked on the user's PC |
+| 7 · Themes (0.3.0) | Released v0.3.0; installed 0.2.2 offers it |
 
 ## How to build, run and test
 
@@ -105,7 +106,7 @@ Saves ~150 MB with 3 accounts and fewer Task Manager rows. Trade-offs: a crash o
 - `ui/selftest.js` ships inside the release build (harmless: the debug commands it needs don't exist there). Could be left out later.
 - An empty `EBWebView` folder appears in the data root (WebView2 default folder from the main window); harmless.
 - Fable 5.2 review of PLAN.md (was blocked by usage credits).
-- Next release: check by eye that the update chip shows in the title bar (0.2.2 is the first version with it there).
+- Checked: installed 0.2.2 shows "Update 0.3.0 ready · Restart" in the title bar, right of the logo. Installing 0.3.0 by click is up to the user; then check the theme button and Glass on the real logins.
 
 ## Issues found
 
