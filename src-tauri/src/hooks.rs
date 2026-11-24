@@ -6,12 +6,18 @@ use std::{cell::RefCell, collections::HashMap};
 
 use tauri::{AppHandle, Emitter, Manager, Webview};
 use webview2_com::{
-    AcceleratorKeyPressedEventHandler, ContextMenuRequestedEventHandler, FocusChangedEventHandler,
+    AcceleratorKeyPressedEventHandler, ContextMenuRequestedEventHandler, DownloadStartingEventHandler, FocusChangedEventHandler,
     Microsoft::Web::WebView2::Win32::*, NavigationCompletedEventHandler, NotificationReceivedEventHandler,
     ProcessFailedEventHandler, take_pwstr,
 };
 use windows::{
-    Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_MENU, VK_SHIFT},
+    Win32::{
+        Foundation::HWND,
+        UI::{
+            Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_MENU, VK_SHIFT},
+            WindowsAndMessaging::{GA_ROOT, GetAncestor},
+        },
+    },
     core::{HSTRING, Interface, PWSTR},
 };
 
@@ -82,6 +88,22 @@ unsafe fn setup(app: &AppHandle, id: &str, controller: &ICoreWebView2Controller)
                         }
                     }
                     Ok(())
+                })),
+                &mut token,
+            )?;
+        }
+
+        // Downloads: Save-as window, then a "Saved" toast (downloads.rs).
+        if let Ok(core4) = core.cast::<ICoreWebView2_4>() {
+            let app2 = app.clone();
+            let mut parent = HWND::default();
+            let _ = controller.ParentWindow(&mut parent);
+            let owner = GetAncestor(parent, GA_ROOT);
+            let owner = if owner.is_invalid() { parent } else { owner };
+            core4.add_DownloadStarting(
+                &DownloadStartingEventHandler::create(Box::new(move |_sender, args| {
+                    let Some(args) = args else { return Ok(()) };
+                    crate::downloads::on_starting(&app2, owner, args)
                 })),
                 &mut token,
             )?;

@@ -20,6 +20,9 @@ pub struct Account {
     pub notifications: bool,
     pub media: bool,
     pub zoom: f64,
+    /// Opt-in, off by default: turn on WhatsApp Web's own calling switch for
+    /// this account (see `force_calling.js`). Changes WhatsApp's page.
+    pub force_calling: bool,
 }
 
 impl Default for Account {
@@ -31,6 +34,7 @@ impl Default for Account {
             notifications: true,
             media: true,
             zoom: 1.0,
+            force_calling: false,
         }
     }
 }

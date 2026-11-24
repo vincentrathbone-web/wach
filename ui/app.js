@@ -352,6 +352,7 @@ function accountSheet(id) {
   const name = h("input", { type: "text", id: "acc-name", maxlength: "40", value: a.name, autocomplete: "off" });
   const notif = h("input", { type: "checkbox", id: "acc-notif", checked: a.notifications });
   const media = h("input", { type: "checkbox", id: "acc-media", checked: a.media });
+  const calls = h("input", { type: "checkbox", id: "acc-calls", checked: a.force_calling });
   const err = h("p", { class: "error" });
   const idx = accounts().indexOf(a);
   const move = async (to) => {
@@ -389,7 +390,7 @@ function accountSheet(id) {
     try {
       const updated = await invoke("update_account", {
         id,
-        patch: { name: name.value, color, notifications: notif.checked, media: media.checked },
+        patch: { name: name.value, color, notifications: notif.checked, media: media.checked, force_calling: calls.checked },
       });
       Object.assign(a, updated);
       closeSheet();
@@ -403,7 +404,9 @@ function accountSheet(id) {
     h("div", { class: "field" }, h("span", { class: "label", text: "Colour" }), colorPicker(color, (c) => (color = c))),
     h("div", {},
       h("label", { class: "toggle", for: "acc-notif" }, h("span", { text: "Notifications" }), notif),
-      h("label", { class: "toggle", for: "acc-media" }, h("span", { text: "Microphone & camera (calls, voice notes)" }), media)),
+      h("label", { class: "toggle", for: "acc-media" }, h("span", { text: "Microphone & camera (calls, voice notes)" }), media),
+      h("label", { class: "toggle", for: "acc-calls" }, h("span", { text: "Experimental: force voice & video calls" }), calls),
+      h("p", { class: "note", text: "Only for an account where WhatsApp hasn't switched on calls in the browser yet. It changes WhatsApp's page, which is against WhatsApp's rules (small risk to the account). Saving reloads this account." })),
     h("div", { class: "row" },
       h("button", { type: "button", class: "btn", text: "Move up", disabled: idx === 0, onclick: () => move(idx - 1) }),
       h("button", { type: "button", class: "btn", text: "Move down", disabled: idx === accounts().length - 1, onclick: () => move(idx + 1) }),

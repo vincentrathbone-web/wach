@@ -5,8 +5,8 @@ use std::sync::Mutex;
 use windows::{
     Data::Xml::Dom::XmlDocument,
     Foundation::TypedEventHandler,
-    UI::Notifications::{ToastNotification, ToastNotificationManager},
-    core::{HSTRING, IInspectable},
+    UI::Notifications::{ToastActivatedEventArgs, ToastNotification, ToastNotificationManager},
+    core::{HSTRING, IInspectable, Interface},
 };
 
 use crate::platform::AUMID;
@@ -26,6 +26,23 @@ fn try_show(group: &str, title: &str, body: &str, tag: &str, on_click: impl FnOn
         escape(&cap(title, 120)),
         escape(&cap(body, 400)),
     );
+    present(&xml, group, tag, move |_| on_click())
+}
+
+/// "Saved …" toast for a finished download. Clicking it calls `on_click`
+/// with "open"; the "Show in folder" button calls it with "folder".
+pub fn show_saved(title: &str, body: &str, on_click: impl FnOnce(String) + Send + 'static) {
+    let xml = format!(
+        r#"<toast launch="open"><visual><binding template="ToastGeneric"><text hint-maxLines="1">{}</text><text>{}</text></binding></visual><actions><action content="Open" arguments="open"/><action content="Show in folder" arguments="folder"/></actions></toast>"#,
+        escape(&cap(title, 120)),
+        escape(&cap(body, 400)),
+    );
+    if let Err(e) = present(&xml, "download", "", on_click) {
+        eprintln!("[wach] toast failed: {e}");
+    }
+}
+
+fn present(xml: &str, group: &str, tag: &str, on_click: impl FnOnce(String) + Send + 'static) -> windows::core::Result<()> {
     let doc = XmlDocument::new()?;
     doc.LoadXml(&HSTRING::from(xml))?;
     let toast = ToastNotification::CreateToastNotification(&doc)?;
@@ -36,9 +53,16 @@ fn try_show(group: &str, title: &str, body: &str, tag: &str, on_click: impl FnOn
         toast.SetGroup(&HSTRING::from(cap(group, 64)))?;
     }
     let once = Mutex::new(Some(on_click));
-    toast.Activated(&TypedEventHandler::<ToastNotification, IInspectable>::new(move |_, _| {
+    toast.Activated(&TypedEventHandler::<ToastNotification, IInspectable>::new(move |_, args| {
+        // Which button (or the toast itself, via `launch`) was clicked.
+        let arg = args
+            .as_ref()
+            .and_then(|a| a.cast::<ToastActivatedEventArgs>().ok())
+            .and_then(|a| a.Arguments().ok())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         if let Some(f) = once.lock().unwrap().take() {
-            f();
+            f(arg);
         }
         Ok(())
     }))?;

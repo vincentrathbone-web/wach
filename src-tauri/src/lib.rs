@@ -2,6 +2,7 @@
 
 mod accounts;
 mod config;
+mod downloads;
 #[cfg(windows)]
 mod hooks;
 #[cfg(windows)]
@@ -292,6 +293,14 @@ fn debug_simulate(webview: Webview, app: AppHandle, state: State<App>, kind: Str
                 let _ = app2.run_on_main_thread(move || show_account(&app3, &id2));
             });
         }
+        // Starts a real (tiny) download in the account's page → Save-as window.
+        "download" => {
+            let wv = accounts::get(&app, &id).ok_or("no such account")?;
+            wv.eval(
+                "(()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['WACH self-test'],{type:'text/plain'}));a.download='wach-selftest.txt';document.body.appendChild(a);a.click();a.remove();})()",
+            )
+            .map_err(|e| e.to_string())?;
+        }
         "zoom-in" => on_shortcut(&app, Some(&id), Action::ZoomIn),
         "zoom-reset" => on_shortcut(&app, Some(&id), Action::ZoomReset),
         "crash" => on_account_crashed(&app, &id, false),
@@ -363,11 +372,13 @@ struct AccountPatch {
     color: Option<String>,
     notifications: Option<bool>,
     media: Option<bool>,
+    force_calling: Option<bool>,
 }
 
 #[tauri::command]
-fn update_account(webview: Webview, state: State<App>, id: String, patch: AccountPatch) -> Result<Account, String> {
+fn update_account(webview: Webview, app: AppHandle, state: State<App>, id: String, patch: AccountPatch) -> Result<Account, String> {
     ui_only(&webview)?;
+    let mut restart = false;
     let updated = {
         let mut cfg = state.cfg.lock().unwrap();
         let a = cfg.account_mut(&id).ok_or("No such account.")?;
@@ -386,9 +397,19 @@ fn update_account(webview: Webview, state: State<App>, id: String, patch: Accoun
         if let Some(v) = patch.media {
             a.media = v;
         }
+        if let Some(v) = patch.force_calling
+            && v != a.force_calling
+        {
+            a.force_calling = v;
+            restart = true;
+        }
         a.clone()
     };
     state.save();
+    // The calling script is added when the webview is built, so rebuild it.
+    if restart {
+        recreate_webview(&app, &id);
+    }
     Ok(updated)
 }
 
@@ -760,6 +781,44 @@ pub fn run() {
             // still load, so notifications arrive.
             if !std::env::args().any(|a| a == platform::HIDDEN_FLAG) {
                 window.show()?;
+            }
+
+            // Debug builds only: WACH_TEST_DOWNLOAD=1 starts a small download
+            // in the first account after 20 s, to test the Save-as window.
+            #[cfg(debug_assertions)]
+            if std::env::var("WACH_TEST_DOWNLOAD").is_ok_and(|v| v == "1")
+                && let Some(first) = account_ids.first().cloned()
+            {
+                let app2 = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(20));
+                    let app3 = app2.clone();
+                    let _ = app2.run_on_main_thread(move || {
+                        let ui = app3.get_webview("ui");
+                        let st = app3.state::<App>();
+                        if let Some(ui) = ui {
+                            let r = debug_simulate(ui, app3.clone(), st, "download".into(), first, None);
+                            eprintln!("[wach] test download: {r:?}");
+                        }
+                    });
+                });
+            }
+
+            // Debug builds only: WACH_TEST_CALLING=1 reports, through each
+            // account's page title after 25 s, whether the calling switch is on.
+            #[cfg(debug_assertions)]
+            if std::env::var("WACH_TEST_CALLING").is_ok_and(|v| v == "1") {
+                let (app2, ids) = (app.handle().clone(), account_ids.clone());
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(25));
+                    for id in ids {
+                        if let Some(wv) = accounts::get(&app2, &id) {
+                            let _ = wv.eval(
+                                "(()=>{let s='no-require';try{const ab=window.require('WAWebABProps');s='patched='+!!ab.getABPropConfigValue.__wach+' web_calling='+ab.getABPropConfigValue('enable_web_calling');}catch(e){s='error:'+e.message;}document.title='WACH-CALLS '+s;})()",
+                            );
+                        }
+                    }
+                });
             }
             Ok(())
         })

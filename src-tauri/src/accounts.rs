@@ -15,6 +15,10 @@ use crate::{
 /// but never hidden: a hidden WebView2 may throttle the WhatsApp connection.
 pub const PARK: (f64, f64) = (-32_000.0, 0.0);
 
+/// Turns on WhatsApp Web's own voice/video calling switches (only for
+/// accounts with `force_calling`).
+const FORCE_CALLING_JS: &str = include_str!("force_calling.js");
+
 pub fn label(id: &str) -> String {
     format!("acc-{id}")
 }
@@ -29,7 +33,10 @@ pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webvi
     // each one is its own WebView2 profile, so cookies and storage stay apart.
     let key = rules::profile_key(id).ok_or_else(|| tauri::Error::AssetNotFound(id.into()))?;
     let dir = state.store.shared_dir();
-    let bg = state.cfg.lock().unwrap().settings.theme.background;
+    let (bg, force_calling) = {
+        let cfg = state.cfg.lock().unwrap();
+        (cfg.settings.theme.background, cfg.account(id).is_some_and(|a| a.force_calling))
+    };
     let url: Url = format!("{}/", rules::WHATSAPP_ORIGIN).parse().expect("static url");
 
     let title_app = app.clone();
@@ -43,6 +50,9 @@ pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webvi
         .background_color(Color(bg[0], bg[1], bg[2], 255))
         .devtools(cfg!(debug_assertions))
         .zoom_hotkeys_enabled(false)
+        // Tauri's own drop handler swallows dropped files; let WhatsApp's
+        // page get them so files can be dragged into a chat.
+        .disable_drag_drop_handler()
         .on_navigation(|url| match rules::navigation(url) {
             Nav::Allow => true,
             Nav::External(link) => {
@@ -61,6 +71,9 @@ pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webvi
             NewWindowResponse::Deny
         })
         .on_document_title_changed(move |_wv, title| {
+            // Debug builds only run on test data (WACH_DATA_DIR); used by tests.
+            #[cfg(debug_assertions)]
+            eprintln!("[wach] title {title_id}: {title}");
             crate::set_unread(&title_app, &title_id, rules::unread_from_title(&title));
         })
         .on_permission_request(move |_wv, kind| {
@@ -80,8 +93,11 @@ pub fn create(app: &AppHandle, window: &Window, id: &str) -> tauri::Result<Webvi
                 .map(|a| (a.notifications, a.media))
                 .unwrap_or((false, false));
             if rules::permission(perm, n, m) { PermissionResponse::Allow } else { PermissionResponse::Deny }
-        })
-        .on_download(|_wv, _event| true);
+        });
+    // Opt-in per account: the only script WACH ever puts into WhatsApp's page.
+    let builder = if force_calling { builder.initialization_script(FORCE_CALLING_JS) } else { builder };
+    // Downloads: no `on_download` here on purpose. hooks.rs handles WebView2's
+    // DownloadStarting itself (Save-as window, then a "Saved" toast).
 
     let webview = window.add_child(builder, LogicalPosition::new(PARK.0, PARK.1), LogicalSize::new(800.0, 600.0))?;
     crate::hooks::attach(app, &webview, id);
