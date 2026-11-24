@@ -6,7 +6,7 @@ Last updated: 2026-11-18 (0.2.0 released and installed; updater key copied into 
 
 ## Drag-and-drop, Save-as downloads, calls (released in v0.3.1, 2026-11-25)
 
-- v0.3.1 published (installer, .sig, latest.json); the update feed answers 0.3.1. The user's PC had 0.3.0 installed at release time; the in-app update is up to the user's click.
+- v0.3.1 published (installer, .sig, latest.json); the update feed answers 0.3.1. The user updated to 0.3.1 in-app; with the box ticked for Personal, **voice calls work** on Personal (confirmed by the user, 2026-11-25).
 
 - **Drag and drop** of files into a chat: Tauri's drop handler swallowed the drop; account webviews now use `.disable_drag_drop_handler()` (accounts.rs). Needs a real check on a logged-in chat.
 - **Downloads**: no `on_download` on the builder any more. `hooks.rs` takes WebView2 `DownloadStarting` (`ICoreWebView2_4`), hides Edge's bubble, takes a deferral; `downloads.rs` opens Windows' Save-as window (`IFileSaveDialog`, owner = main window) after the event returns, then sets `ResultFilePath` or cancels. When done: toast "Saved <name>" (click = open the file, button "Show in folder"); a failed download (not user-cancelled) gives "Couldn't save". Tested in a debug copy: dialog shows with name + type + Downloads, file lands where picked, toast shown with both buttons (toast clicks not tested — synthetic clicks don't work).
